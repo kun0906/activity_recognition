@@ -1,7 +1,8 @@
 # Auto-labeling
-    Use CNN to extract features from videos and build a classifer (e.g., Random Forest) to recognize human activities from vides streaming.
+    Use CNN to extract features from videos and build a classifer 
+    (e.g., Random Forest) to recognize human activities from vides streaming.
      
-#Steps:
+# Steps:
     1. install <= python3.7
     2. install tensorflow < 2.0 (1.15)
     3. download model: vgg_16.cpkt
