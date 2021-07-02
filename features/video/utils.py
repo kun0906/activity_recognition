@@ -109,3 +109,34 @@ def pad_and_resize(image, desired_size):
         image_processed, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
     return image_processed
 
+
+
+import cv2
+import os
+
+def trim(in_file, start_time, end_time, out_file=None):
+    """
+
+    Parameters
+    ----------
+    in_file: input video
+    start_time:
+    end_time
+    out_file
+
+    Returns
+    -------
+
+    """
+    from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
+    if not out_file:
+        out_file = os.path.splitext(in_file)[0] + '-trim.mp4'
+
+    out_dir = os.path.abspath(os.path.dirname(out_file))
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=False)
+    # print(out_dir, in_file, out_file)
+    ffmpeg_extract_subclip(in_file, start_time, end_time, targetname=out_file)
+
+
+

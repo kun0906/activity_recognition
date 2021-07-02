@@ -15,8 +15,11 @@
 # Structure:
     data: input data
     features: extracted features 
-    nets: nerual networks
-    slim: pre-trained models
+        pcap: pcap features
+        video: video features
+            nets: nerual networks
+            slim: pre-trained models
+    models: available models
     out: output results
     
 

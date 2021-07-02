@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """
-Caffe implementation of the feature extraction process described in:
+Caffe implementation of the features extraction process described in:
 
 [1] Giorgos Kordopatis-Zilos, Symeon Papadopoulos, Ioannis Patras, Yiannis Kompatsiaris
     Near-Duplicate Video Retrieval by Aggregating Intermediate CNN Layers
@@ -45,8 +45,8 @@ class CNN_caffe():
 
           Args:
             name: name of the CNN network
-            prototxt: path to prototxt file of the pre-trained CNN model
-            caffemodel: path to caffemodel file of the pre-trained CNN model
+            prototxt: path to prototxt file of the pre-trained CNN models
+            caffemodel: path to caffemodel file of the pre-trained CNN models
 
           Raise:
             ValueError: if provided network name is not provided
@@ -133,7 +133,7 @@ class CNN_caffe():
                     activations /= np.linalg.norm(activations, axis=1, keepdims=True) + 1e-15
                     # global max-pooling on channel dimension
                     activations = activations.max(axis=(2, 3))
-                    # normalize feature vector
+                    # normalize features vector
                     activations /= np.linalg.norm(activations, axis=1, keepdims=True) + 1e-15
                     features[i * batch_sz:(i + 1) * batch_sz, start: start + activations.shape[1]] = activations
                     start += activations.shape[1]

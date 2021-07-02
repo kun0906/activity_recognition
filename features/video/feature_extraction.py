@@ -80,7 +80,7 @@ def feature_extraction_videos(model, cores, batch_sz, video_list, output_path):
 
             # save features
             np.save(path, features)
-    np.savetxt('{}/video_feature_list.txt'.format(output_path), output_list, fmt='%s')
+    np.savetxt('{}/video_feature_list.txt'.format(output_path), output_list, fmt='%features')
 
 
 def feature_extraction_images(model, cores, batch_sz, image_list, output_path):
@@ -138,13 +138,13 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--image_list', type=str,
                         help='List of images to extract features')
     parser.add_argument('-tf', '--tf_model', type=str, default='./slim/vgg_16.cpkt',
-                        help='Path to the .ckpt file of the pre-trained CNN model. '
+                        help='Path to the .ckpt file of the pre-trained CNN models. '
                              'Required if Tensorflow framework is selected')
     parser.add_argument('-pt', '--prototxt', type=str,
-                        help='Path to the .prototxt file of the pre-trained CNN model. '
+                        help='Path to the .prototxt file of the pre-trained CNN models. '
                              'Required if Caffe framework is selected')
     parser.add_argument('-cm', '--caffemodel', type=str,
-                        help='Path to the .caffemodel file of the pre-trained CNN model. '
+                        help='Path to the .caffemodel file of the pre-trained CNN models. '
                              'Required if Caffe framework is selected')
     parser.add_argument('-c', '--cores', type=int, default=8,
                         help='Number of CPU cores for the parallel load of images or video')
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     else:
         raise Exception('--framework is invalid. Only Caffe and Tensorflow frameworks are supported')
 
-    print('\nCNN model has been built and initialized')
+    print('\nCNN models has been built and initialized')
     print('Architecture used: ', args['network'])
 
     if args['video_list']:

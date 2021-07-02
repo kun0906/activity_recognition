@@ -24,7 +24,7 @@ class AnomalyDetector:
 
     def fit(self, X_train, y_train=None):
         # 1. preprocessing
-        # 2. build model
+        # 2. build models
         if self.model_name == 'KDE':
             self.model = KernelDensity(kernel='gaussian', bandwidth=0.5)
             self.model.fit(X_train)
@@ -167,7 +167,7 @@ def main(random_state = 42):
     res = []
     for n_estimators in [10, 50, 100, 200, 300, 400, 500, 700, 900, 1000]:
         print(f'\nn_estimators: {n_estimators}')
-        # 2. build the kde model
+        # 2. build the kde models
         # detector = AnomalyDetector(model_name='KDE', model_parameters = {'bandwidth': 0.1, 'kernel': 'gussisan'})
         # detector = AnomalyDetector(model_name='DT', model_parameters={}, random_state=random_state)
         # detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators':n_estimators}, random_state=random_state)

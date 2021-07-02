@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """
-Tensorflow implementation of the feature extraction process described in:
+Tensorflow implementation of the features extraction process described in:
 
 [1] Giorgos Kordopatis-Zilos, Symeon Papadopoulos, Ioannis Patras, Yiannis Kompatsiaris
     Near-Duplicate Video Retrieval by Aggregating Intermediate CNN Layers.
@@ -42,7 +42,7 @@ class CNN_tf():
 
           Args:
             name: name of the CNN network
-            model_ckpt: path to ckpt file of the pre-trained CNN model
+            model_ckpt: path to ckpt file of the pre-trained CNN models
 
           Raise:
             ValueError: if provided network name is not provided
@@ -90,7 +90,7 @@ class CNN_tf():
 
         # 1. normalize on channel dimension
         # 2. global max-pooling on channel dimension
-        # 3. normalize feature vector
+        # 3. normalize features vector
         net = [tf.nn.l2_normalize(tf.reduce_max(tf.nn.l2_normalize(tf.nn.relu(net[l])
                 , 3, epsilon=1e-15), axis=(1, 2)), 1, epsilon=1e-15) for l in self.layers]
 
@@ -106,10 +106,10 @@ class CNN_tf():
 
     def load_model(self, model_ckpt):
         """
-          Function that loads the pre-trained model.
+          Function that loads the pre-trained models.
 
           Args:
-            model_ckpt: path to ckpt file of the pre-trained CNN model
+            model_ckpt: path to ckpt file of the pre-trained CNN models
 
           Returns:
             tf_init: variables initializer

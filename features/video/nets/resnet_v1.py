@@ -87,7 +87,7 @@ def bottleneck(inputs,
     inputs: A tensor of size [batch, height, width, channels].
     depth: The depth of the ResNet unit output.
     depth_bottleneck: The depth of the bottleneck layers.
-    stride: The ResNet unit's stride. Determines the amount of downsampling of
+    stride: The ResNet unit'features stride. Determines the amount of downsampling of
       the units output compared to its input.
     rate: An integer, rate for atrous convolution.
     outputs_collections: Collection to add the ResNet unit output.
@@ -96,7 +96,7 @@ def bottleneck(inputs,
       activations better lend themselves to quantized inference.
 
   Returns:
-    The ResNet unit's output.
+    The ResNet unit'features output.
   """
   with tf.variable_scope(scope, 'bottleneck_v1', [inputs]) as sc:
     depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank=4)
@@ -142,19 +142,19 @@ def resnet_v1(inputs,
   """Generator for v1 ResNet models.
 
   This function generates a family of ResNet v1 models. See the resnet_v1_*()
-  methods for specific model instantiations, obtained by selecting different
+  methods for specific models instantiations, obtained by selecting different
   block instantiations that produce ResNets of various depths.
 
   Training for image classification on Imagenet is usually done with [224, 224]
-  inputs, resulting in [7, 7] feature maps at the output of the last ResNet
+  inputs, resulting in [7, 7] features maps at the output of the last ResNet
   block for the ResNets defined in [1] that have nominal stride equal to 32.
   However, for dense prediction tasks we advise that one uses inputs with
   spatial dimensions that are multiples of 32 plus 1, e.g., [321, 321]. In
-  this case the feature maps at the ResNet output will have spatial shape
+  this case the features maps at the ResNet output will have spatial shape
   [(height - 1) / output_stride + 1, (width - 1) / output_stride + 1]
   and corners exactly aligned with the input image corners, which greatly
   facilitates alignment of the features to the image. Using as input [225, 225]
-  images results in [8, 8] feature maps at the output of the last ResNet block.
+  images results in [8, 8] features maps at the output of the last ResNet block.
 
   For dense prediction tasks, the ResNet needs to run in fully-convolutional
   (FCN) mode and global_pool needs to be set to False. The ResNets in [1, 2] all
@@ -266,7 +266,7 @@ def resnet_v1_50(inputs,
                  spatial_squeeze=True,
                  reuse=None,
                  scope='resnet_v1_50'):
-  """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
+  """ResNet-50 models of [1]. See resnet_v1() for arg and return description."""
   blocks = [
       resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
       resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
@@ -288,7 +288,7 @@ def resnet_v1_101(inputs,
                   spatial_squeeze=True,
                   reuse=None,
                   scope='resnet_v1_101'):
-  """ResNet-101 model of [1]. See resnet_v1() for arg and return description."""
+  """ResNet-101 models of [1]. See resnet_v1() for arg and return description."""
   blocks = [
       resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
       resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
@@ -310,7 +310,7 @@ def resnet_v1_152(inputs,
                   spatial_squeeze=True,
                   reuse=None,
                   scope='resnet_v1_152'):
-  """ResNet-152 model of [1]. See resnet_v1() for arg and return description."""
+  """ResNet-152 models of [1]. See resnet_v1() for arg and return description."""
   blocks = [
       resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
       resnet_v1_block('block2', base_depth=128, num_units=8, stride=2),
@@ -332,7 +332,7 @@ def resnet_v1_200(inputs,
                   spatial_squeeze=True,
                   reuse=None,
                   scope='resnet_v1_200'):
-  """ResNet-200 model of [2]. See resnet_v1() for arg and return description."""
+  """ResNet-200 models of [2]. See resnet_v1() for arg and return description."""
   blocks = [
       resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
       resnet_v1_block('block2', base_depth=128, num_units=24, stride=2),

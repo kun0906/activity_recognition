@@ -93,7 +93,7 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
 
      net = slim.conv2d(inputs, num_outputs, 3, stride=stride, padding='SAME')
 
-  is different when the input's height or width is even, which is why we add the
+  is different when the input'features height or width is even, which is why we add the
   current function. For more details, see ResnetUtilsTest.testConv2DSameEven().
 
   Args:
@@ -125,7 +125,7 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
 @slim.add_arg_scope
 def stack_blocks_dense(net, blocks, output_stride=None,
                        outputs_collections=None):
-  """Stacks ResNet `Blocks` and controls output feature density.
+  """Stacks ResNet `Blocks` and controls output features density.
 
   First, this function creates scopes for the ResNet in the form of
   'block_name/unit_1', 'block_name/unit_2', etc.
@@ -141,7 +141,7 @@ def stack_blocks_dense(net, blocks, output_stride=None,
   half the nominal network stride (e.g., output_stride=4), then we compute
   responses twice.
 
-  Control of the output feature density is implemented by atrous convolution.
+  Control of the output features density is implemented by atrous convolution.
 
   Args:
     net: A `Tensor` of size [batch, height, width, channels].
@@ -180,7 +180,7 @@ def stack_blocks_dense(net, blocks, output_stride=None,
         with tf.variable_scope('unit_%d' % (i + 1), values=[net]):
           # If we have reached the target output_stride, then we need to employ
           # atrous convolution with stride=1 and multiply the atrous rate by the
-          # current unit's stride for use in subsequent layers.
+          # current unit'features stride for use in subsequent layers.
           if output_stride is not None and current_stride == output_stride:
             net = block.unit_fn(net, rate=rate, **dict(unit, stride=1))
             rate *= unit.get('stride', 1)
@@ -210,7 +210,7 @@ def resnet_arg_scope(weight_decay=0.0001,
     training ResNets from scratch, they might need to be tuned.
 
   Args:
-    weight_decay: The weight decay to use for regularizing the model.
+    weight_decay: The weight decay to use for regularizing the models.
     batch_norm_decay: The moving average decay when estimating layer activation
       statistics in batch normalization.
     batch_norm_epsilon: Small constant to prevent division by zero when
@@ -239,7 +239,7 @@ def resnet_arg_scope(weight_decay=0.0001,
       normalizer_fn=slim.batch_norm if use_batch_norm else None,
       normalizer_params=batch_norm_params):
     with slim.arg_scope([slim.batch_norm], **batch_norm_params):
-      # The following implies padding='SAME' for pool1, which makes feature
+      # The following implies padding='SAME' for pool1, which makes features
       # alignment easier for dense prediction tasks. This is also used in
       # https://github.com/facebook/fb.resnet.torch. However the accompanying
       # code of 'Deep Residual Learning for Image Recognition' uses
