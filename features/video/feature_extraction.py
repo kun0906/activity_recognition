@@ -23,7 +23,7 @@ import numpy as np
 from tqdm import tqdm
 from future.utils import lrange
 from multiprocessing import Pool
-from utils import load_video, load_image
+from features.video.utils import load_video, load_image
 
 
 def feature_extraction_videos(model, cores, batch_sz, video_list, output_path):
@@ -38,20 +38,24 @@ def feature_extraction_videos(model, cores, batch_sz, video_list, output_path):
         video_list: list of video to extract features
         output_path: path to store video features
     """
-    videos = {i: video.strip() for i, video in enumerate(open(video_list).readlines())}
-    print('\nNumber of videos: ', len(videos))
-    print('Storage directory: ', output_path)
-    print('CPU cores: ', cores)
-    print('Batch size: ', batch_sz)
-    print(list(videos.keys()))
-    print('\nFeature Extraction Process')
-    print('==========================')
+    if type(video_list) == list:
+        pass
+    else:
+        video_list = open(video_list).readlines()
+    videos = {i: video.strip() for i, video in enumerate(video_list)}
+    # print('\nNumber of videos: ', len(videos))
+    # print('Storage directory: ', output_path)
+    # print('CPU cores: ', cores)
+    # print('Batch size: ', batch_sz)
+    # # print(list(videos.keys()))
+    # print('\nFeature Extraction Process')
+    # print('==========================')
     pool = Pool(cores)
     future_videos = dict()
     output_list = []
     pbar = tqdm(lrange(np.max(list(videos.keys())) + 1), mininterval=1.0, unit='videos')
     for video in pbar:
-        print('afdafdafd', video)
+        print('', video)
         if os.path.exists(videos[video]):
             video_name = os.path.splitext(os.path.basename(videos[video]))[0]
             if video not in future_videos:
@@ -76,11 +80,12 @@ def feature_extraction_videos(model, cores, batch_sz, video_list, output_path):
 
             path = os.path.join(output_path, '{}_{}'.format(video_name, model.net_name))
             output_list += ['{}\t{}'.format(video_name, path)]
-            pbar.set_postfix(video=video_name)
+            # pbar.set_postfix(video=video_name)
 
             # save features
             np.save(path, features)
-    np.savetxt('{}/video_feature_list.txt'.format(output_path), output_list, fmt='%features')
+            print(path)
+    # np.savetxt('{}/video_feature_list.txt'.format(output_path), output_list, fmt='%s')
 
 
 def feature_extraction_images(model, cores, batch_sz, image_list, output_path):
@@ -160,7 +165,7 @@ if __name__ == '__main__':
                             'https://github.com/tensorflow/models/tree/master/research/slim')
         elif '.ckpt' not in args['tf_model']:
             raise Exception('--tf_model argument is not a .ckpt file.')
-        from model_tf import CNN_tf
+        from features.video.model_tf import CNN_tf
         model = CNN_tf(args['network'].lower(), args['tf_model'])
     elif args['framework'].lower() in ['cf', 'caffe']:
         print('Selected framework: Caffe')
@@ -173,7 +178,7 @@ if __name__ == '__main__':
         elif '.caffemodel' not in args['caffemodel']:
             raise Exception('--caffemodel is not a .caffemodel file')
 
-        from model_caffe import CNN_caffe
+        from features.video.model_caffe import CNN_caffe
         model = CNN_caffe(args['network'].lower(), args['prototxt'], args['caffemodel'])
     else:
         raise Exception('--framework is invalid. Only Caffe and Tensorflow frameworks are supported')

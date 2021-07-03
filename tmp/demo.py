@@ -1,20 +1,20 @@
-
-flg = False
-if flg:
-    import os
-    cmd = 'python3.7 feature_extraction.py --video_list data/video.txt  --network vgg --framework tensorflow --output_path out/ --tf_model ./slim/vgg_16.ckpt'
-    # eval(cmd)
-    os.system(cmd)
+#
+# flg = False
+# if flg:
+#     import os
+#     cmd = 'python3.7 feature_extraction.py --video_list data/video.txt  --network vgg --framework tensorflow --output_path out/ --tf_model ./slim/vgg_16.ckpt'
+#     # eval(cmd)
+#     os.system(cmd)
 
 import numpy as np
 
 # f = 'out/play_music_1_1615410036_1_vgg.npy'
 f = 'out/ask_time_1_1614904536_1_vgg.npy'
-fs = [# 'out/camera2_mkv/ask_weather_4_1616183946_2_vgg.npy',
-    'out/ask_time_1_1614904536_1_vgg.npy',
-      'out/ask_time_1_1614904536_2_vgg.npy'
+fs = [  # 'out/camera2_mkv/ask_weather_4_1616183946_2_vgg.npy',
+    'out/tmp/ask_time_1_1614904536_1_vgg.npy',
+    'out/tmp/ask_time_1_1614904536_2_vgg.npy'
 ]
-fs2 = [ 'out/output_mp4/ask_time_1_1614904536_1_vgg.npy',
+fs2 = ['out/output_mp4/ask_time_1_1614904536_1_vgg.npy',
         'out/output_mkv/ask_time_1_1614904536_2_vgg.npy',
         'out/output_mkv/ask_time_1_1614904536_2_vgg.npy',
         ]

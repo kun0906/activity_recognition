@@ -3,6 +3,10 @@ import pickle
 from collections import OrderedDict
 
 import numpy as np
+from future.utils import lrange
+
+from features.video.model_tf import CNN_tf
+from features.video.utils import load_video
 
 
 def write2disk(file_lst, out_file):
@@ -11,12 +15,25 @@ def write2disk(file_lst, out_file):
         f.write(s)
 
 
+def feature_extraction_videos(model, batch_sz, video_file, output_path):
+    video_name = os.path.splitext(os.path.basename(video_file))[0]
+    # sampling: only extract the first frame in each second from the video.
+    video_tensor = load_video(video_file, model.desired_size)
+    # extract features
+    features = model.extract(video_tensor, batch_sz)
+    path = os.path.join(output_path, '{}_{}'.format(video_name, model.net_name))
+    # save features
+    np.save(path, features)
+    print(path)
+
+
 def extract_video_feature(in_dir='data/data-clean'):
     mp4_lst = []  # camera 1
     mkv_lst = []  # camera 2
     for device_dir in os.listdir(in_dir):  # devices
         pth = os.path.join(in_dir, device_dir)
         if not os.path.isdir(pth): continue
+        if 'refrigerator' not in pth: continue  # only focus on refrigerator
         for activity_dir in os.listdir(pth):  # activity:
             pth1 = os.path.join(pth, activity_dir)
             if not os.path.isdir(pth1): continue
@@ -24,28 +41,43 @@ def extract_video_feature(in_dir='data/data-clean'):
                 pth2 = os.path.join(pth1, part_id_dir)
                 if not os.path.isdir(pth2): continue
                 for f in os.listdir(pth2):
-                    if 'no_interaction' in f: continue
+                    # if 'no_interaction' in f: continue
                     if f.endswith('.mp4'):
                         mp4_lst.append(os.path.join(pth2, f))
                     elif f.endswith('.mkv'):
                         mkv_lst.append(os.path.join(pth2, f))
 
-    mp4_file = 'out/camera1_mp4.txt'
+    out_dir = 'out'
+    mp4_file = f'{out_dir}/{in_dir}/camera1_mp4.txt'
     write2disk(mp4_lst, mp4_file)
-    mkv_file = 'out/camera2_mkv.txt'
+    mkv_file = f'{out_dir}/{in_dir}/camera2_mkv.txt'
     write2disk(mkv_lst, mkv_file)
 
-    out_dir = 'out'
-    for camera, video_file in [('camera1_mp4', mp4_file), ('camera2_mkv', mkv_file)]:
-        _out_dir = os.path.join(out_dir, camera)
+    # # for camera, video_file in [('camera1_mp4', mp4_file), ('camera2_mkv', mkv_file)]:
+    # for camera, video_file, video_lst in [('camera1_mp4', mp4_file, mp4_lst)]:
+    #     _out_dir = os.path.basename(video_file)
+    #     if not os.path.exists(_out_dir):
+    #         os.makedirs(_out_dir)
+    #     cmd = f'python3.7 features/video/feature_extraction.py --video_list {video_lst}  ' \
+    #           f'--network vgg --framework tensorflow ' \
+    #           f'--output_path {_out_dir} --tf_model ./features/video/slim/vgg_16.ckpt'
+    #     print(cmd)
+    #     os.system(cmd)
+
+    # for camera, video_file in [('camera1_mp4', mp4_file), ('camera2_mkv', mkv_file)]:
+
+    # deep neural network model
+    model_file = './features/video/slim/vgg_16.ckpt'
+    model = CNN_tf('vgg', model_file)
+    batch_sz = 32
+    tot = len(mp4_lst)
+    print('\nNumber of videos: ', tot)
+    for i, video_file in enumerate(mp4_lst):
+        print(f'{i + 1}/{tot}, {video_file}')
+        _out_dir = os.path.join(out_dir, os.path.dirname(video_file))
         if not os.path.exists(_out_dir):
             os.makedirs(_out_dir)
-        cmd = f'python3.7 feature_extraction.py --video_list {video_file}  --network vgg --framework tensorflow ' \
-              f'--output_path {_out_dir} --tf_model ./slim/vgg_16.ckpt'
-        print(cmd)
-        os.system(cmd)
-
-
+        feature_extraction_videos(model, batch_sz, video_file, _out_dir)
 
 
 def extract_feature(file_path):
@@ -53,14 +85,13 @@ def extract_feature(file_path):
     return [x.flatten()]
 
 
-
-def extract_feature3(file_path):
+def extract_feature_average(file_path):
     x = np.load(file_path)
     x = np.sum(x, axis=0) / len(x)
     return [x.flatten()]
 
 
-def extract_feature2(file_path):
+def extract_feature_sliding_window(file_path):
     x = np.load(file_path)
 
     # sliding window
@@ -71,7 +102,7 @@ def extract_feature2(file_path):
         if i > w:
             # tmp -= x[i-w]
             # tmp += x[i]
-            _x = x[i-w:i]
+            _x = x[i - w:i]
             tmp = np.sum(_x, axis=0) / len(_x)
             res.append(tmp)
         else:
@@ -80,7 +111,6 @@ def extract_feature2(file_path):
             res.append(tmp)
 
     return res
-
 
 
 def extract_label(file_name):
@@ -92,6 +122,7 @@ def extract_label(file_name):
         label += v + '_'
 
     return label[:-1]
+
 
 # def form_x_y(in_dir=''):
 #     # act_label = {"frg_no_interaction": 0,
@@ -129,7 +160,7 @@ def extract_label(file_name):
 #     meta = {'X':np.asarray(X), 'y': np.asarray(Y), 'shape': (c, len(X[0])), 'labels':mp, 'in_dir': in_dir}
 #     return meta
 
-def form_X_y(in_dir):
+def form_X_y_old(in_dir):
     mp = OrderedDict()
     i = 0
     c = 0
@@ -139,18 +170,53 @@ def form_X_y(in_dir):
         for f in sorted(os.listdir(_in_dir)):
             xs = extract_feature(os.path.join(_in_dir, f))
             y = extract_label(f)
-            if y == 'no_interaction': continue
+            # if y == 'no_interaction': continue
             if y not in mp.keys():
                 mp[y] = (i, 1)  # (idx, cnt)
                 i += 1
             else:
                 mp[y] = (mp[y][0], mp[y][1] + 1)
             X.extend(xs)
-            Y.extend([mp[y][0]]*len(xs))
+            Y.extend([mp[y][0]] * len(xs))
             c += 1
     print(f'{in_dir}: total videos: {c}, and classes: {i}')
     print(f'{in_dir}: Labels: {mp.items()}')
     meta = {'X': np.asarray(X), 'y': np.asarray(Y), 'shape': (c, len(X[0])), 'labels': mp, 'in_dir': in_dir}
+    return meta
+
+
+def form_X_y(in_dir, device_type='refrigerator'):
+    mp = OrderedDict()
+    i = 0
+    c = 0
+    X = []
+    Y = []
+    for device_dir in in_dir:  # 'data/data-clean/refrigerator
+        if device_type not in device_dir: continue
+        for activity_dir in os.listdir(device_dir):
+            activity_dir = os.path.join(device_dir, activity_dir)
+            if not os.path.exists(activity_dir) or '.DS_Store' in activity_dir: continue
+            for participant_dir in os.listdir(activity_dir):
+                participant_dir = os.path.join(activity_dir, participant_dir)
+                if not os.path.exists(participant_dir) or '.DS_Store' in participant_dir: continue
+                # print(participant_dir)
+                for f in sorted(os.listdir(participant_dir)):
+                    if '.npy' not in f: continue
+                    x = os.path.join(participant_dir, f)
+                    y = extract_label(f)
+                    # if y == 'no_interaction': continue
+                    if y not in mp.keys():
+                        mp[y] = (i, 1)  # (idx, cnt)
+                        i += 1
+                    else:
+                        mp[y] = (mp[y][0], mp[y][1] + 1)
+                    X.append(x)
+                    Y.append(mp[y][0])
+                    c += 1
+    print(f'{in_dir}: total videos: {c}, and classes: {i}')
+    print(f'{in_dir}: Labels: {mp.items()}')
+    idx2label = {v[0]: k for k, v in mp.items()}  # idx -> activity name
+    meta = {'X': X, 'y': Y, 'shape': (c, len(X[0])), 'labels': mp, 'idx2label': idx2label, 'in_dir': in_dir}
     return meta
 
 
@@ -164,6 +230,21 @@ def load_data(in_file):
         data = pickle.load(f)
     return data
 
+
+def generate_data(in_dir='out/output_mp4', out_file='out/Xy.dat'):
+    if type(in_dir) == str:
+        in_dir = [in_dir]
+    elif type(in_dir) == list:
+        pass
+    else:
+        raise NotImplementedError()
+
+    meta = form_X_y(in_dir)
+    dump_data(meta, out_file)
+    return meta
+
+
+#
 
 if __name__ == '__main__':
     # # in_dir = 'out/output_mkv'
