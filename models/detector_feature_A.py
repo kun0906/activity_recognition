@@ -10,6 +10,7 @@ from scipy.stats import norm
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KernelDensity
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 from features import feature
@@ -194,23 +195,25 @@ def get_X_y(Xs, ys):
 
 def main(random_state=42):
     in_dir = 'out/data/data-clean/refrigerator'
-    # in_dir = 'out/trimmed/data/data-clean/refrigerator'
+    # in_dir = 'out/data/trimmed/data-clean/refrigerator'
     in_file = f'{in_dir}/Xy-mkv.dat'
-    in_file = f'{in_dir}/Xy-mp4.dat'
+    in_file, video_type = f'{in_dir}/Xy-mp4.dat', 'mp4'
     # in_file = f'{in_dir}/Xy-comb.dat'
-    if not os.path.exists(in_file):
-        if 'mkv' in in_file:
-            in_dir = 'out/output_mkv'
-            out_file = 'out/Xy-mkv.dat'
-        elif 'mp4' in in_file:
-            in_dir = f'{in_dir}'
-            out_file = f'{in_dir}/Xy-mp4.dat'
-        elif 'comb' in in_file:
-            in_dir = ['out/output_mp4', 'out/output_mkv']
-            out_file = 'out/Xy-comb.dat'
-        else:
-            raise NotImplementedError
-        generate_data(in_dir, out_file)
+    # if not os.path.exists(in_file):
+    #     if 'mkv' in in_file:
+    #         in_dir = 'out/output_mkv'
+    #         out_file = 'out/Xy-mkv.dat'
+    #     elif 'mp4' in in_file:
+    #         in_dir = f'{in_dir}'
+    #         out_file = f'{in_dir}/Xy-mp4.dat'
+    #     elif 'comb' in in_file:
+    #         in_dir = ['out/output_mp4', 'out/output_mkv']
+    #         out_file = 'out/Xy-comb.dat'
+    #     else:
+    #         raise NotImplementedError
+    if os.path.exists(in_file):
+        os.remove(in_file)
+    generate_data(in_dir, in_file, video_type=video_type)  # get file_path and label
     meta = feature.load_data(in_file)
     X, y = meta['X'], meta['y']
     X, y = get_X_y(X, y)
@@ -223,6 +226,12 @@ def main(random_state=42):
     print(f'X_train: {X_test.shape}, y_test: {sorted(Counter(y_test).items(), key=lambda x: x[0])}')
 
     # print(X_train[:10])
+    # scaler = MinMaxScaler()
+    scaler = StandardScaler()
+    # X = np.concatenate(X, axis=0)
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
 
     res = []
     for n_estimators in [10, 50, 100, 200, 300, 400, 500, 700, 900, 1000]:
@@ -230,16 +239,15 @@ def main(random_state=42):
         # 2. build the kde models
         # detector = AnomalyDetector(model_name='KDE', model_parameters = {'bandwidth': 0.1, 'kernel': 'gussisan'})
         # detector = AnomalyDetector(model_name='DT', model_parameters={}, random_state=random_state)
-        detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
-                                   random_state=random_state)
+        # detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
+        #                            random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'rbf'}, random_state=random_state)
-        # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'linear'}, random_state=random_state)
+        detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
         detector.fit(X_train, y_train)
         #
         # # 3. compute the threshold
         # detector.get_threshold(X_train, q=0.01)
         # # print(detector.predict_prob(X_train))
-
 
         # 4. evaulation
         y_preds = detector.model.predict(X_test)

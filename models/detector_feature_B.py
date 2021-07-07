@@ -8,6 +8,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neighbors import KernelDensity
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 from features import feature
@@ -151,24 +152,24 @@ def get_X_y(Xs, ys, augment=True):
 
 def main(random_state=42):
     in_dir = 'out/data/data-clean/refrigerator'
-    # in_file = f'{in_dir}/Xy-mkv.dat'
-    in_file = f'{in_dir}/Xy-mp4.dat'
+    # in_dir = 'out/data/trimmed/data-clean/refrigerator'
+    in_file, video_type = f'{in_dir}/Xy-mp4.dat', 'mp4'
     # in_file = f'{in_dir}/Xy-comb.dat'
+    # if not os.path.exists(in_file):
+    #     if 'mkv' in in_file:
+    #         in_dir = 'out/output_mkv'
+    #         out_file = 'out/Xy-mkv.dat'
+    #     elif 'mp4' in in_file:
+    #         in_dir = f'{in_dir}'
+    #         out_file = f'{in_dir}/Xy-mp4.dat'
+    #     elif 'comb' in in_file:
+    #         in_dir = ['out/output_mp4', 'out/output_mkv']
+    #         out_file = 'out/Xy-comb.dat'
+    #     else:
+    #         raise NotImplementedError
     if os.path.exists(in_file):
         os.remove(in_file)
-    if not os.path.exists(in_file):
-        if 'mkv' in in_file:
-            in_dir = 'out/output_mkv'
-            out_file = 'out/Xy-mkv.dat'
-        elif 'mp4' in in_file:
-            in_dir = f'{in_dir}'
-            out_file = f'{in_dir}/Xy-mp4.dat'
-        elif 'comb' in in_file:
-            in_dir = ['out/output_mp4', 'out/output_mkv']
-            out_file = 'out/Xy-comb.dat'
-        else:
-            raise NotImplementedError
-        generate_data(in_dir, out_file)
+    generate_data(in_dir, in_file, video_type=video_type)  # get file_path and label
     meta = feature.load_data(in_file)
 
     X_train, X_test, y_train, y_test = train_test_split(meta['X'], meta['y'], test_size=0.3, random_state=random_state)
@@ -182,30 +183,13 @@ def main(random_state=42):
     print(f'X_train: {X_train.shape}, y_train: {sorted(Counter(y_train).items(), key=lambda x: x[0])}')
     print(f'X_train: {X_test.shape}, y_test: {sorted(Counter(y_test).items(), key=lambda x: x[0])}')
 
-    # # in_file = 'out/Xy-mp4.dat'
-    # # in_file = 'out/Xy-mkv.dat'
-    # in_file = 'out/Xy-comb.dat'
-    # if not os.path.exists(in_file):
-    #     if 'mkv' in in_file:
-    #         in_dir = 'out/output_mkv'
-    #         out_file = 'out/Xy-mkv.dat'
-    #     elif 'mp4' in in_file:
-    #         in_dir = 'out/output_mp4'
-    #         out_file = 'out/Xy-mp4.dat'
-    #     elif 'comb' in in_file:
-    #         in_dir = ['out/output_mp4', 'out/output_mkv']
-    #         out_file = 'out/Xy-comb.dat'
-    #     else:
-    #         raise NotImplementedError
-    #     generate_data(in_dir, out_file)
-    # meta = generate.load_data(in_file)
-    # X, y = meta['X'], meta['y']
-    # print(meta['in_dir'], ', its shape:', meta['shape'])
-    # print(f'mapping-(activity:(label, cnt)): ', '\n\t' + '\n\t'.join([f'{k}:{v}' for k, v in meta['labels'].items()]))
-    # mp = {v[0]: k for k, v in meta['labels'].items()}  # idx -> activity name
-    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=random_state)
-    # print(f'X_train: {X_train.shape}\nX_test: {X_test.shape}')
     # print(X_train[:10])
+    # scaler = MinMaxScaler()
+    scaler = StandardScaler()
+    # X = np.concatenate(X, axis=0)
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
 
     res = []
     for n_estimators in [10, 50, 100, 200, 300, 400, 500, 700, 900, 1000]:
@@ -213,10 +197,10 @@ def main(random_state=42):
         # 2. build the kde models
         # detector = AnomalyDetector(model_name='KDE', model_parameters = {'bandwidth': 0.1, 'kernel': 'gussisan'})
         # detector = AnomalyDetector(model_name='DT', model_parameters={}, random_state=random_state)
-        detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
-                                   random_state=random_state)
+        # detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
+        #                            random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'rbf'}, random_state=random_state)
-        # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
+        detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
         # detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C':1}, random_state=random_state)
 
         detector.fit(X_train, y_train)

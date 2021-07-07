@@ -12,6 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neighbors import KernelDensity
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 from features import feature
@@ -75,7 +76,7 @@ def get_X_y(Xs, ys):
     Y = []
     for f, y in zip(Xs, ys):
         x = extract_feature_uChicago(f)
-        x = extract_feature_avg_uChicago(f)
+        # x = extract_feature_avg_uChicago(f)
         X.extend(x)
         Y.append(y)
 
@@ -100,8 +101,8 @@ def main(random_state=42):
     #         out_file = 'out/Xy-comb.dat'
     #     else:
     #         raise NotImplementedError
-    # if os.path.exists(in_file):
-    #     os.remove(in_file)
+    if os.path.exists(in_file):
+        os.remove(in_file)
     generate_data(in_dir, in_file, video_type=video_type)  # get file_path and label
     meta = feature.load_data(in_file)
     print(in_file)
@@ -117,17 +118,24 @@ def main(random_state=42):
 
     # print(X_train[:10])
 
+    # scaler = MinMaxScaler()
+    scaler = StandardScaler()
+    # X = np.concatenate(X, axis=0)
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
     res = []
-    for n_estimators in [10, 50, 100, 200, 300, 400, 500, 700, 900, 1000]:
+    for n_estimators in [10, 50, 100, 200, 300, 400, 500, 700, 900, 1000]:  # (only works for Random Forest)
         print(f'\nn_estimators: {n_estimators}')
         # 2. build the kde models
         # detector = AnomalyDetector(model_name='KDE', model_parameters = {'bandwidth': 0.1, 'kernel': 'gussisan'})
         # detector = AnomalyDetector(model_name='DT', model_parameters={}, random_state=random_state)
-        detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
-                                   random_state=random_state)
+        # detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
+        #                            random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'rbf'}, random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'linear'}, random_state=random_state)
-        # detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C':1}, random_state=random_state)
+        detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C': 1}, random_state=random_state)
 
         detector.fit(X_train, y_train)
         #
