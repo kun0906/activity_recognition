@@ -49,6 +49,8 @@ def extract_video_feature(in_dir='data/data-clean'):
 
     out_dir = 'out'
     mp4_file = f'{out_dir}/{in_dir}/camera1_mp4.txt'
+    if not os.path.exists(os.path.dirname(mp4_file)):
+        os.makedirs((os.path.dirname(mp4_file)))
     write2disk(mp4_lst, mp4_file)
     mkv_file = f'{out_dir}/{in_dir}/camera2_mkv.txt'
     write2disk(mkv_lst, mkv_file)
@@ -99,18 +101,45 @@ def extract_feature_sliding_window(file_path):
     stride = 2
     res = []
     for i in range(0, len(x), stride):
-        if i > w:
-            # tmp -= x[i-w]
-            # tmp += x[i]
-            _x = x[i - w:i]
-            tmp = np.sum(_x, axis=0) / len(_x)
-            res.append(tmp)
-        else:
-            _x = x[:w]
-            tmp = np.sum(x[:w], axis=0) / len(_x)
-            res.append(tmp)
+        _x = x[i:i + w]
+        tmp = np.sum(_x, axis=0) / len(_x)
+        res.append(tmp)
 
     return res
+
+
+def extract_feature_sampling(file_path):
+    x = np.load(file_path)
+
+    res = []
+    for step in range(1, 10 + 1):
+        tmp = []
+        c = 0
+        for i in range(0, len(x), step):
+            tmp.append(x[i])
+            c += 1
+        tmp = np.sum(np.asarray(tmp), axis=0) / c
+        res.append(tmp)
+
+    return res
+
+
+def extract_feature_uChicago(file_path):
+    arr = np.load(file_path)
+
+    res = np.zeros((arr.shape[1],))
+    for i in range(arr.shape[0]):
+        res += arr[i] - arr[0]
+
+    res = np.clip(res, -2, 2)  # lower and upper bound
+    res = [res]
+    return res
+
+
+def extract_feature_avg_uChicago(file_path):
+    x = np.load(file_path)
+    x = np.sum(x, axis=0) / len(x)
+    return [x.flatten()]
 
 
 def extract_label(file_name):
@@ -185,7 +214,7 @@ def form_X_y_old(in_dir):
     return meta
 
 
-def form_X_y(in_dir, device_type='refrigerator'):
+def form_X_y(in_dir, device_type='refrigerator', video_type='mp4'):
     mp = OrderedDict()
     i = 0
     c = 0
@@ -195,14 +224,20 @@ def form_X_y(in_dir, device_type='refrigerator'):
         if device_type not in device_dir: continue
         for activity_dir in os.listdir(device_dir):
             activity_dir = os.path.join(device_dir, activity_dir)
-            if not os.path.exists(activity_dir) or '.DS_Store' in activity_dir: continue
+            if not os.path.exists(activity_dir) or '.DS_Store' in activity_dir or not os.path.isdir(
+                activity_dir): continue
             for participant_dir in os.listdir(activity_dir):
                 participant_dir = os.path.join(activity_dir, participant_dir)
                 if not os.path.exists(participant_dir) or '.DS_Store' in participant_dir: continue
                 # print(participant_dir)
                 for f in sorted(os.listdir(participant_dir)):
                     if '.npy' not in f: continue
-                    x = os.path.join(participant_dir, f)
+                    if video_type == 'mp4' and '1_vgg.npy' in f:
+                        x = os.path.join(participant_dir, f)
+                    elif video_type == 'mkv' and '2_vgg.npy' in f:
+                        x = os.path.join(participant_dir, f)
+                    else:
+                        continue
                     y = extract_label(f)
                     # if y == 'no_interaction': continue
                     if y not in mp.keys():
@@ -231,7 +266,7 @@ def load_data(in_file):
     return data
 
 
-def generate_data(in_dir='out/output_mp4', out_file='out/Xy.dat'):
+def generate_data(in_dir='out/output_mp4', out_file='out/Xy.dat', video_type='mp4'):
     if type(in_dir) == str:
         in_dir = [in_dir]
     elif type(in_dir) == list:
@@ -239,7 +274,7 @@ def generate_data(in_dir='out/output_mp4', out_file='out/Xy.dat'):
     else:
         raise NotImplementedError()
 
-    meta = form_X_y(in_dir)
+    meta = form_X_y(in_dir, video_type=video_type)
     dump_data(meta, out_file)
     return meta
 
@@ -252,4 +287,5 @@ if __name__ == '__main__':
     # meta = form_X_y(in_dir)
     # out_file = 'out/Xy-mp4.dat'
     # dump_data(meta, out_file)
-    extract_video_feature(in_dir='data/data-clean')
+    # extract_video_feature(in_dir='data/data-clean')
+    extract_video_feature(in_dir='data/trimmed/data-clean')

@@ -194,6 +194,7 @@ def get_X_y(Xs, ys):
 
 def main(random_state=42):
     in_dir = 'out/data/data-clean/refrigerator'
+    # in_dir = 'out/trimmed/data/data-clean/refrigerator'
     in_file = f'{in_dir}/Xy-mkv.dat'
     in_file = f'{in_dir}/Xy-mp4.dat'
     # in_file = f'{in_dir}/Xy-comb.dat'

@@ -136,8 +136,5 @@ def trim(in_file, start_time, end_time, out_file=None):
     out_dir = os.path.abspath(os.path.dirname(out_file))
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=False)
-    # print(out_dir, in_file, out_file)
+    print(out_dir, in_file, out_file)
     ffmpeg_extract_subclip(in_file, start_time, end_time, targetname=out_file)
-
-
-

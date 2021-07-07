@@ -4,7 +4,9 @@ from collections import Counter
 import numpy as np
 import sklearn
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neighbors import KernelDensity
 from sklearn.tree import DecisionTreeClassifier
 
@@ -37,6 +39,11 @@ class AnomalyDetector:
         elif self.model_name == 'SVM':
             kernel = self.model_parameters['kernel']
             self.model = sklearn.svm.SVC(kernel=kernel, random_state=self.random_state)
+            self.model.fit(X_train, y_train)
+        elif self.model_name == 'OvRLogReg':
+            C = self.model_parameters['C']
+            self.model = OneVsRestClassifier(
+                LogisticRegression(C=C, random_state=self.random_state, solver='liblinear'))
             self.model.fit(X_train, y_train)
 
     def get_threshold(self, X_train, q=0.95):
@@ -144,9 +151,11 @@ def get_X_y(Xs, ys, augment=True):
 
 def main(random_state=42):
     in_dir = 'out/data/data-clean/refrigerator'
-    in_file = f'{in_dir}/Xy-mkv.dat'
+    # in_file = f'{in_dir}/Xy-mkv.dat'
     in_file = f'{in_dir}/Xy-mp4.dat'
     # in_file = f'{in_dir}/Xy-comb.dat'
+    if os.path.exists(in_file):
+        os.remove(in_file)
     if not os.path.exists(in_file):
         if 'mkv' in in_file:
             in_dir = 'out/output_mkv'
@@ -208,6 +217,8 @@ def main(random_state=42):
                                    random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'rbf'}, random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
+        # detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C':1}, random_state=random_state)
+
         detector.fit(X_train, y_train)
         #
         # # 3. compute the threshold
