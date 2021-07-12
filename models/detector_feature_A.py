@@ -242,7 +242,8 @@ def main(random_state=42):
         # detector = AnomalyDetector(model_name='RF', model_parameters={'n_estimators': n_estimators},
         #                            random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'rbf'}, random_state=random_state)
-        detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
+        # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
+        detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C': 1}, random_state=random_state)
         detector.fit(X_train, y_train)
         #
         # # 3. compute the threshold

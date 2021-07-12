@@ -232,9 +232,9 @@ def form_X_y(in_dir, device_type='refrigerator', video_type='mp4'):
                 # print(participant_dir)
                 for f in sorted(os.listdir(participant_dir)):
                     if '.npy' not in f: continue
-                    if video_type == 'mp4' and '1_vgg.npy' in f:
+                    if video_type == 'mp4' and ('1_vgg.npy' in f or '1-mirrored_vgg.npy' in f):
                         x = os.path.join(participant_dir, f)
-                    elif video_type == 'mkv' and '2_vgg.npy' in f:
+                    elif video_type == 'mkv' and ('2_vgg.npy' in f or '2-mirrored_vgg.npy' in f):
                         x = os.path.join(participant_dir, f)
                     else:
                         continue
@@ -251,7 +251,7 @@ def form_X_y(in_dir, device_type='refrigerator', video_type='mp4'):
     print(f'{in_dir}: total videos: {c}, and classes: {i}')
     print(f'{in_dir}: Labels: {mp.items()}')
     idx2label = {v[0]: k for k, v in mp.items()}  # idx -> activity name
-    meta = {'X': X, 'y': Y, 'shape': (c, len(X[0])), 'labels': mp, 'idx2label': idx2label, 'in_dir': in_dir}
+    meta = {'X': X, 'y': Y, 'shape': (c,), 'labels': mp, 'idx2label': idx2label, 'in_dir': in_dir}
     return meta
 
 
