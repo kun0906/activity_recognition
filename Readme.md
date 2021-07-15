@@ -1,3 +1,8 @@
+
+
+
+
+
 # Auto-labeling
     Use CNN to extract features from videos and build a classifer 
     (e.g., Random Forest) to recognize human activities from vides streaming.

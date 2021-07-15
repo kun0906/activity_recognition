@@ -232,9 +232,9 @@ def form_X_y(in_dir, device_type='refrigerator', video_type='mp4'):
                 # print(participant_dir)
                 for f in sorted(os.listdir(participant_dir)):
                     if '.npy' not in f: continue
-                    if video_type == 'mp4' and ('1_vgg.npy' in f or '1-mirrored_vgg.npy' in f):
+                    if video_type == 'mp4' and '1_vgg.npy' in f:  # ('1_vgg.npy' in f or '1-mirrored_vgg.npy' in f):
                         x = os.path.join(participant_dir, f)
-                    elif video_type == 'mkv' and ('2_vgg.npy' in f or '2-mirrored_vgg.npy' in f):
+                    elif video_type == 'mkv' and '2_vgg.npy' in f:  # ('2_vgg.npy' in f or '2-mirrored_vgg.npy' in f):
                         x = os.path.join(participant_dir, f)
                     else:
                         continue

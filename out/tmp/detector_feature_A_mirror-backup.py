@@ -1,12 +1,3 @@
-"""
-
-run the below command under 'activity_recognition' foloder:
-    PYTHONPATH=../:./ python3 models/detector_feature_A_mirror.py
-
-
-
-"""
-
 import os
 from collections import Counter
 from shutil import copyfile
@@ -207,32 +198,6 @@ def split_train_test_npy(meta, test_size=0.3, is_mirror_test_set=False, random_s
     return X_train, X_test, y_train, y_test
 
 
-def augment(X, Y):
-    """ add mirrored data to X
-
-    Parameters
-    ----------
-    X
-
-    Returns
-    -------
-
-    """
-    new_X = []
-    new_Y = []
-    for x, y in zip(X, Y):
-        new_X.append(x)
-        new_Y.append(y)
-        # add 'mirrored' npy
-        ent = '_vgg.npy'
-        new_x = x[:-len(ent)] + '-mirrored' + ent
-        # print(x_, new_x_)
-        new_X.append(new_x)
-        new_Y.append(y)
-
-    return new_X, new_Y
-
-
 def main(random_state=42):
     # extract feature data (npy) by CNN
     # in_dir_raw = 'data/data-clean/refrigerator'
@@ -260,28 +225,20 @@ def main(random_state=42):
     #         raise NotImplementedError
     if os.path.exists(in_file):
         os.remove(in_file)
-    generate_data(in_dir, in_file, video_type=video_type)  # get file_path (npy, not includes 'mirror' data) and label
+    generate_data(in_dir, in_file, video_type=video_type)  # get file_path (npy) and label
     meta = feature.load_data(in_file)  # load 'npy' files
-    X, y = meta['X'], meta['y']
+    # X, y = meta['X'], meta['y']
     # X, y = get_X_y(X, y)    # extract features from 'npy' files
-    print(meta['in_dir'], ', its shape:', meta['shape'])
-    print(f'mapping-(activity:(label, cnt)): ', '\n\t' + '\n\t'.join([f'{k}:{v}' for k, v in meta['labels'].items()]))
+    # print(meta['in_dir'], ', its shape:', meta['shape'])
+    # print(f'mapping-(activity:(label, cnt)): ', '\n\t' + '\n\t'.join([f'{k}:{v}' for k, v in meta['labels'].items()]))
     mp = {v[0]: k for k, v in meta['labels'].items()}  # idx -> activity name
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=random_state)
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=random_state)
+    # print(f'X_train: {X_train.shape}\nX_test: {X_test.shape}')
+    # print(f'X_train: {X_train.shape}, y_train: {sorted(Counter(y_train).items(), key=lambda x: x[0])}')
+    # print(f'X_train: {X_test.shape}, y_test: {sorted(Counter(y_test).items(), key=lambda x: x[0])}')
 
-    # augment data
-    X_train, y_train = augment(X_train, y_train)
-    X_train, y_train = get_X_y(X_train, y_train)  # extract features from 'npy' files
-    X_test, y_test = augment(X_test, y_test)  # if augment X_test?
-    X_test, y_test = get_X_y(X_test, y_test)  # extract features from 'npy' files
-
-    print(f'X_train: {X_train.shape}\nX_test: {X_test.shape}')
-    print(f'X_train: {X_train.shape}, y_train: {sorted(Counter(y_train).items(), key=lambda x: x[0])}')
-    print(f'X_train: {X_test.shape}, y_test: {sorted(Counter(y_test).items(), key=lambda x: x[0])}')
-
-    # X_train, X_test, y_train, y_test = split_train_test_npy(meta, test_size=0.3,
-    #                                                         is_mirror_test_set=True, random_state=random_state)
-
+    X_train, X_test, y_train, y_test = split_train_test_npy(meta, test_size=0.3,
+                                                            is_mirror_test_set=True, random_state=random_state)
     # print(X_train[:10])
     # scaler = MinMaxScaler()
     scaler = StandardScaler()
@@ -356,7 +313,7 @@ def main(random_state=42):
         # print('***misclassified classes:')
         # print('\t'+'\n\t'.join([ f'{k}->{Counter(vs)}' for k, vs in err_mp.items()]))
     print(res)
-    print(sorted(res, key=lambda x: x[0], reverse=True))
+
 
 if __name__ == '__main__':
     main()
