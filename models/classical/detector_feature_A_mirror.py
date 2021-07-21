@@ -287,14 +287,15 @@ def main(random_state=42):
         # extract feature data (npy) by CNN
         in_dir_raw = 'data/data-clean/refrigerator'
         in_dir = 'data/mirrored/data-clean/refrigerator'
-        mirror_video([in_dir_raw], out_dir=in_dir)  # mirror videos
+        mirror_video([in_dir_raw], out_dir=in_dir, video_type='mp4')  # mirror videos
 
     in_dir = 'out/data/mirrored/data-clean/refrigerator'
     # in_dir = 'out/data/data-clean/refrigerator'
     # in_dir = 'out/data/trimmed/data-clean/refrigerator'
     # in_dir = 'out/data/mirror/data-clean/refrigerator'
     # in_file = f'{in_dir}/Xy-mkv.dat'
-    in_file, video_type = f'{in_dir}/Xy-mp4.dat', 'mp4'
+    # video_type = {'_1.mp4': front view,'_3.mp4': side view and mirrored (up to down) view, 'mkv': side view}
+    in_file, video_type = f'{in_dir}/Xy-mp4.dat', '_1.mp4'
     # in_file = f'{in_dir}/Xy-comb.dat'
     # if not os.path.exists(in_file):
     #     if 'mkv' in in_file:
