@@ -23,7 +23,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 from features import feature
-from features.feature import extract_feature_average, generate_data, extract_video_feature
+from features.feature import extract_feature_average, generate_data, extract_video_feature, \
+    extract_feature_sliding_window, extract_feature_sampling
 
 
 def _mirror_video(in_file, out_dir):
@@ -79,7 +80,7 @@ def _mirror_video(in_file, out_dir):
 
 
 def mirror_video(in_dir, device_type='refrigerator', video_type='mp4', out_dir=None):
-    # mirror video
+    # mirror video and also extract features
     for device_dir in in_dir:  # 'data/data-clean/refrigerator
         out_dir_sub = ''
         if device_type not in device_dir: continue
@@ -164,8 +165,7 @@ def get_X_y(Xs, ys):
         X.extend(x)
         Y.append(y)
 
-    return np.asarray(X), np.asarray(Y)
-
+    return Xs, np.asarray(X), np.asarray(Y)
 
 def split_train_test_npy(meta, test_size=0.3, is_mirror_test_set=False, random_state=42):
     X = []  # doesn't include 'mirrored' npy
@@ -317,7 +317,7 @@ def main(random_state=42):
 
     is_plot = True
     if is_plot:
-        x_tmp, y_tmp = get_X_y(X, y)
+        _, x_tmp, y_tmp = get_X_y(X, y)
         y_label_tmp = [meta['idx2label'][i] for i in y_tmp]
         tsne_plot(x_tmp, y_tmp, y_label_tmp)
 
@@ -327,14 +327,14 @@ def main(random_state=42):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=random_state)
 
     # augment data
-    is_augment_train = True
+    is_augment_train = False
     if is_augment_train:
         X_train, y_train = augment(X_train, y_train)
-    X_train, y_train = get_X_y(X_train, y_train)  # extract features from 'npy' files
-    is_augment_test = True
+    X_train_id, X_train, y_train = get_X_y(X_train, y_train)  # extract features from 'npy' files
+    is_augment_test = False
     if is_augment_test:
         X_test, y_test = augment(X_test, y_test)  # if augment X_test?
-    X_test, y_test = get_X_y(X_test, y_test)  # extract features from 'npy' files
+    X_test_id, X_test, y_test = get_X_y(X_test, y_test)  # extract features from 'npy' files
 
     print(f'is_augment_train: {is_augment_train}, is_augment_test: {is_augment_test}')
     print(f'X_train: {X_train.shape}\nX_test: {X_test.shape}')
@@ -412,19 +412,33 @@ def main(random_state=42):
         for i, vs in enumerate(list(cm)):
             print(f'{mp[i][:w]:<{w}} ({i})\t', '\t\t'.join([f'{v}' for v in list(vs)]))
 
-        # # 5 get misclassification
-        # err_mp = {}
-        # for y_t, y_p in zip(y_test, y_preds):
-        #     if y_t != y_p:
-        #         name = f'{mp[y_t]}({y_t})'
-        #         if name not in err_mp.keys():
-        #             err_mp[name] = [f'{mp[y_p]}({y_p})']
-        #         else:
-        #             err_mp[name].append(f'{mp[y_p]}({y_p})')
-        #
-        #         # print(f'{mp[y_t]} -> {mp[y_p]}')
-        # print('***misclassified classes:')
-        # print('\t'+'\n\t'.join([ f'{k}->{Counter(vs)}' for k, vs in err_mp.items()]))
+        # 5 get misclassification
+        err_mp = {}
+        misclassified_dir = 'out/misclassified'
+        for x_test_, y_t, y_p in zip(X_test_id, y_test, y_preds):
+            if y_t != y_p:
+                name = f'{mp[y_t]}({y_t}):{x_test_}'
+                if name not in err_mp.keys():
+                    err_mp[name] = [f'{mp[y_p]}({y_p})']
+                else:
+                    err_mp[name].append(f'{mp[y_p]}({y_p})')
+                # copy misclassified videos to dst
+                # f = x_test_.split('refrigerator/')[-1]
+                # copyfile(src, dst)
+                # If dst already exists, it will be replaced.
+                x_test_ = x_test_.replace('_vgg.npy', '.mp4')[4:]
+                print(x_test_)
+                tmp_out_dir = os.path.join(misclassified_dir, model_name, mp[y_t] + '->')
+                if not os.path.exists(tmp_out_dir):
+                    os.makedirs(tmp_out_dir)
+                copyfile(x_test_, os.path.join(tmp_out_dir, os.path.split(x_test_)[-1]))
+                # print(f'{mp[y_t]} -> {mp[y_p]}')
+        print('***misclassified classes:')
+        # print('\t' + '\n\t'.join([f'{k}->{Counter(vs)}' for k, vs in sorted(err_mp.items())]))
+        for label_, _ in meta['labels'].items():
+            for k, vs in sorted(err_mp.items()):
+                if label_ in k:
+                    print('\t' + '\n\t'.join([f'{k}->{vs}']))
     print('\n\n', res)
     print(sorted(res, key=lambda x: x[0], reverse=True))
 
