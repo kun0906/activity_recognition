@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-     PYTHONPATH=./:../:../../ python3 models/cnn_bert/two_stream_bert2_main.py
+    1) python   ==  3.7.9
+    2). install all the libraries in the requirement.txt
+    3) Download 'resnext-101-64f-kinetics.pth' (find the link from models/cnn_bert/README.md) and put it into the models/cnn_bert/weights (if not exist, create a new folder)
+    4) run the code (e.g., two_stream_bert2.py) under the "activity_recognition/"
+         PYTHONPATH=./:../:../../ python3 models/cnn_bert/two_stream_bert2_main.py
+
 
     3DCNN + Bert for human activity recognition
 
