@@ -27,7 +27,7 @@ def feature_extraction_videos(model, batch_sz, video_file, output_path):
     print(path)
 
 
-def extract_video_feature(in_dir='data/data-clean'):
+def extract_video_feature(in_dir='data/data-clean', video_type='mkv'):
     mp4_lst = []  # camera 1
     mkv_lst = []  # camera 2
     for device_dir in os.listdir(in_dir):  # devices
@@ -72,14 +72,22 @@ def extract_video_feature(in_dir='data/data-clean'):
     model_file = './features/video/slim/vgg_16.ckpt'
     model = CNN_tf('vgg', model_file)
     batch_sz = 32
-    tot = len(mp4_lst)
+
+    if video_type == 'mp4':
+        file_lst = mp4_lst
+    elif video_type == 'mkv':
+        file_lst = mkv_lst
+
+    tot = len(file_lst)
     print('\nNumber of videos: ', tot)
-    for i, video_file in enumerate(mp4_lst):
+
+    for i, video_file in enumerate(file_lst):
         print(f'{i + 1}/{tot}, {video_file}')
         _out_dir = os.path.join(out_dir, os.path.dirname(video_file))
         if not os.path.exists(_out_dir):
             os.makedirs(_out_dir)
         feature_extraction_videos(model, batch_sz, video_file, _out_dir)
+
 
 
 def extract_feature(file_path):
@@ -89,7 +97,10 @@ def extract_feature(file_path):
 
 def extract_feature_average(file_path):
     x = np.load(file_path)
-    x = np.sum(x, axis=0) / len(x)
+    if len(x) == 0:
+        x = np.sum(x, axis=0)
+    else:
+        x = np.sum(x, axis=0) / len(x)
     return [x.flatten()]
 
 
@@ -108,7 +119,7 @@ def extract_feature_sliding_window(file_path):
     return res
 
 
-def extract_feature_sampling(file_path):
+def extract_feature_sampling_old(file_path):
     x = np.load(file_path)
 
     res = []
@@ -118,8 +129,25 @@ def extract_feature_sampling(file_path):
         for i in range(0, len(x), step):
             tmp.append(x[i])
             c += 1
+        if c == 0: continue
         tmp = np.sum(np.asarray(tmp), axis=0) / c
-        res.append(tmp)
+        res.append(tmp.flatten())
+
+    return res
+
+
+def extract_feature_sampling(file_path):
+    x = np.load(file_path)
+
+    res = []
+    for step in range(1, 5 + 1):
+        tmp = []
+        c = 0
+        for i in range(0, len(x), step):
+            tmp.extend(x[i].tolist())
+            c += 1
+        if c == 0: continue
+        res.append(np.asarray(tmp))
 
     return res
 

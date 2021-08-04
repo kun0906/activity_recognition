@@ -80,31 +80,31 @@ def _mirror_video(in_file, out_dir):
 
 
 def mirror_video(in_dir, device_type='refrigerator', video_type='mp4', out_dir=None):
-    # mirror video and also extract features
-    for device_dir in in_dir:  # 'data/data-clean/refrigerator
-        out_dir_sub = ''
-        if device_type not in device_dir: continue
-        for activity_dir in os.listdir(device_dir):
-            out_dir_activity = activity_dir
-            activity_dir = os.path.join(device_dir, activity_dir)
-            if not os.path.exists(activity_dir) or '.DS_Store' in activity_dir or not os.path.isdir(
-                    activity_dir): continue
-            for participant_dir in os.listdir(activity_dir):
-                out_dir_participant = participant_dir
-                out_dir_sub = os.path.join(participant_dir)
-                participant_dir = os.path.join(activity_dir, participant_dir)
-                if not os.path.exists(participant_dir) or '.DS_Store' in participant_dir: continue
-                # print(participant_dir)
-                for f in sorted(os.listdir(participant_dir)):
-                    if video_type == 'mp4' and 'mp4' in f:
-                        x = os.path.join(participant_dir, f)
-                    elif video_type == 'mkv' and 'mkv' in f:
-                        x = os.path.join(participant_dir, f)
-                    else:
-                        continue
-                    _mirror_video(x, out_dir=os.path.join(out_dir, out_dir_activity, out_dir_participant))
+    # # mirror video and also extract features
+    # for device_dir in in_dir:  # 'data/data-clean/refrigerator
+    #     out_dir_sub = ''
+    #     if device_type not in device_dir: continue
+    #     for activity_dir in os.listdir(device_dir):
+    #         out_dir_activity = activity_dir
+    #         activity_dir = os.path.join(device_dir, activity_dir)
+    #         if not os.path.exists(activity_dir) or '.DS_Store' in activity_dir or not os.path.isdir(
+    #                 activity_dir): continue
+    #         for participant_dir in os.listdir(activity_dir):
+    #             out_dir_participant = participant_dir
+    #             out_dir_sub = os.path.join(participant_dir)
+    #             participant_dir = os.path.join(activity_dir, participant_dir)
+    #             if not os.path.exists(participant_dir) or '.DS_Store' in participant_dir: continue
+    #             # print(participant_dir)
+    #             for f in sorted(os.listdir(participant_dir)):
+    #                 if video_type == 'mp4' and 'mp4' in f:
+    #                     x = os.path.join(participant_dir, f)
+    #                 elif video_type == 'mkv' and 'mkv' in f:
+    #                     x = os.path.join(participant_dir, f)
+    #                 else:
+    #                     continue
+    #                 _mirror_video(x, out_dir=os.path.join(out_dir, out_dir_activity, out_dir_participant))
 
-    extract_video_feature(in_dir=os.path.dirname(out_dir))
+    extract_video_feature(in_dir=os.path.dirname(out_dir), video_type=video_type)
 
 
 class AnomalyDetector:
@@ -287,15 +287,15 @@ def main(random_state=42):
         # extract feature data (npy) by CNN
         in_dir_raw = 'data/data-clean/refrigerator'
         in_dir = 'data/mirrored/data-clean/refrigerator'
-        mirror_video([in_dir_raw], out_dir=in_dir, video_type='mp4')  # mirror videos
-
+        mirror_video([in_dir_raw], out_dir=in_dir, video_type='mkv')  # mirror videos and extract features.
+        return
     in_dir = 'out/data/mirrored/data-clean/refrigerator'
     # in_dir = 'out/data/data-clean/refrigerator'
     # in_dir = 'out/data/trimmed/data-clean/refrigerator'
     # in_dir = 'out/data/mirror/data-clean/refrigerator'
     # in_file = f'{in_dir}/Xy-mkv.dat'
     # video_type = {'_1.mp4': front view,'_3.mp4': side view and mirrored (up to down) view, 'mkv': side view}
-    in_file, video_type = f'{in_dir}/Xy-mp4.dat', '_1.mp4'
+    in_file, video_type = f'{in_dir}/Xy-mp4.dat', 'mkv'
     # in_file = f'{in_dir}/Xy-comb.dat'
     # if not os.path.exists(in_file):
     #     if 'mkv' in in_file:
