@@ -35,7 +35,8 @@ from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-from features.feature import extract_feature_average, extract_feature_sampling, load_data, dump_data
+from features.feature import extract_feature_average, extract_feature_sampling, load_data, dump_data, \
+    extract_feature_sampling_mean
 from features.video.model_tf import CNN_tf
 from features.video.utils import load_video
 from features.video.video import trim
@@ -669,7 +670,7 @@ def change_label2idx(train_meta, label2idx={}):
     return train_meta
 
 
-def cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False):
+def cnn_feature2final_feature(train_meta, feature_type='mean', window_size=5, is_test=False):
     """
 
     Parameters
@@ -692,12 +693,12 @@ def cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False):
                 if feature_type == 'mean':
                     x = extract_feature_average(f)
                 elif feature_type == 'sampling':
-                    x = extract_feature_sampling(f)
+                    x = extract_feature_sampling_mean(f, window_size)
             elif is_test:
                 if feature_type == 'mean':
                     x = extract_feature_average(f)
                 elif feature_type == 'sampling':
-                    x = extract_feature_sampling(f, steps=[1])
+                    x = extract_feature_sampling_mean(f, window_size)
                     # x = extract_feature_sampling(f, steps=[1, 2, 3, 4, 5])
             train_meta[name][i] = (vs[0], vs[1], vs[2], vs[3], x)  # (video_path, feature, y_label, y_idx, X)
 
@@ -976,7 +977,7 @@ def main(random_state=42):
     ###############################################################################################################
     # Step 5. obtain final feature data (X_train and X_test) from CNN features with different methods
     train_meta = cnn_feature2final_feature(train_meta, feature_type='sampling', is_test=False)
-    test_meta = cnn_feature2final_feature(test_meta, feature_type='sampling', is_test=True)
+    test_meta = cnn_feature2final_feature(test_meta, feature_type='sampling', is_test=False)
 
     ###############################################################################################################
     # Step 6. if augment data or not
@@ -985,7 +986,7 @@ def main(random_state=42):
     X_train_meta, X_train, y_train = augment_train(train_meta, augment_type='camera_1+camera_2+camera_3',
                                                    # +camera_2+camera_3
                                                    is_mirror=False)
-    dim = get_dim(X_train, q=0.9)
+    dim = get_dim(X_train, q=1)  # get maximum
     X_train = fix_dim(X_train, dim)
     # X_train = X_train[:100, :]    # for debugging
     # y_train = y_train[:100]  # for debugging
@@ -1082,8 +1083,8 @@ def main(random_state=42):
         # print('\t' + '\n\t'.join([f'{k}->{Counter(vs)}' for k, vs in sorted(err_mp.items())]))
         # for label_ in y_test:
         #     label_ = idx2label[label_]
-        for k, vs in sorted(err_mp.items()):
-            print('\t' + '\n\t'.join([f'{k}->{vs}']))
+        # for k, vs in sorted(err_mp.items()):
+        #     print('\t' + '\n\t'.join([f'{k}->{vs}']))
 
         end_time = time.time()
         print(f'{model_name} takes {end_time - start_time:.0f} seconds.')

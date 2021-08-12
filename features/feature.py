@@ -101,7 +101,7 @@ def extract_feature_average(file_path):
         x = np.sum(x, axis=0)
     else:
         x = np.sum(x, axis=0) / len(x)
-    return [x.flatten()]
+    return x.reshape(1, -1)
 
 
 def extract_feature_sliding_window(file_path):
@@ -136,11 +136,11 @@ def extract_feature_sampling_old(file_path):
     return res
 
 
-def extract_feature_sampling(file_path):
+def extract_feature_sampling(file_path, steps=[1, 2, 3, 4, 5]):
     x = np.load(file_path)
 
     res = []
-    for step in range(1, 5 + 1):
+    for step in steps:
         tmp = []
         c = 0
         for i in range(0, len(x), step):
@@ -150,6 +150,44 @@ def extract_feature_sampling(file_path):
         res.append(np.asarray(tmp))
 
     return res
+
+
+def extract_feature_sampling_mean(file_path, window_size=5):
+    x = np.load(file_path)
+    res = []
+    for i in range(0, len(x), window_size):
+        if i == 0:
+            res = np.mean(x[i:i + window_size], axis=0)
+        else:
+            res = np.concatenate([res, np.mean(x[i:i + window_size], axis=0)])
+
+    return res.reshape(1, -1)
+
+
+def extract_feature_fixed_segments(file_path, dim=5):
+    x = np.load(file_path)
+    if len(x) == 0:
+        return []
+    if len(x) == dim:
+        res = x
+    elif len(x) < dim:
+        print(len(x), dim, file_path)
+        res = np.concatenate([x, np.zeros(shape=(dim - len(x), len(x[0])))], axis=0)
+    else:
+        res = []
+        window_size = len(x) // dim
+        lst = [ws for ws in range(0, len(x), window_size)]
+        for idx, i in enumerate(lst):
+            if i == 0:
+                res = np.mean(x[i:i + window_size], axis=0)
+            else:
+                if idx == dim - 1:
+                    res = np.concatenate([res, np.mean(x[i:], axis=0)])
+                    break
+                else:
+                    res = np.concatenate([res, np.mean(x[i:i + window_size], axis=0)])
+
+    return res.reshape(1, -1)
 
 
 def extract_feature_uChicago(file_path):

@@ -59,27 +59,6 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="/models/classical/detector_feature_A_mirror-2.py">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/models/classical/detector_feature_mean_concatenate.py">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="/models/cnn_bert/two_stream_bert2_main.py">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="/tmp/2016.csv">
           <value>
             <Attribute>

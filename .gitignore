@@ -12,7 +12,8 @@ models/cnn_bert/checkpoint/*
 models/cnn_bert/datasets/refrigerator_frames/*
 models/cnn_bert/weights/*
 
-
+*.zip
+*.bin
 *.mp4
 *.mkv
 *.avi

@@ -35,10 +35,12 @@ from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-from features.feature import extract_feature_average, extract_feature_sampling, load_data, dump_data
+from features.feature import extract_feature_average, extract_feature_sampling, load_data, dump_data, \
+    extract_feature_sampling_mean
 from features.video.model_tf import CNN_tf
 from features.video.utils import load_video
 from features.video.video import trim
+from features.video_info import get_info
 
 
 def _extract_video_feature(model, in_file, out_dir):
@@ -669,7 +671,7 @@ def change_label2idx(train_meta, label2idx={}):
     return train_meta
 
 
-def cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False):
+def cnn_feature2final_feature(train_meta, feature_type='mean', window_size=5, is_test=False):
     """
 
     Parameters
@@ -681,6 +683,7 @@ def cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False):
     -------
 
     """
+    tmp_len_lst = []
     for name, train in train_meta.items():
         for i, vs in enumerate(train):
             f = vs[1]  # (video_path, feature, y_label, y_idx )
@@ -692,15 +695,18 @@ def cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False):
                 if feature_type == 'mean':
                     x = extract_feature_average(f)
                 elif feature_type == 'sampling':
-                    x = extract_feature_sampling(f)
+                    x = extract_feature_sampling_mean(f, window_size)
             elif is_test:
                 if feature_type == 'mean':
                     x = extract_feature_average(f)
                 elif feature_type == 'sampling':
-                    x = extract_feature_sampling(f, steps=[1])
+                    x = extract_feature_sampling_mean(f, window_size)
                     # x = extract_feature_sampling(f, steps=[1, 2, 3, 4, 5])
-            train_meta[name][i] = (vs[0], vs[1], vs[2], vs[3], x)  # (video_path, feature, y_label, y_idx, X)
-
+            train_meta[name][i] = (vs[0], vs[1], vs[2], vs[3], x)  # (video_path, feature_file, y_label, y_idx, X)
+            tmp_len_lst.append(x.shape[1] // 4096 * 5)
+    qs = [0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1]
+    dims = [f"{int(_v)}({int(_v)} frames, q={_q})" for _v, _q in zip(np.ceil(np.quantile(tmp_len_lst, q=qs)), qs)]
+    print(f'before sampling, dims: {dims} when q={qs}.')
     return train_meta
 
 
@@ -731,6 +737,7 @@ def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True
 
     data = []  # [(video_path, cnn_feature, y)]
 
+    durations = {'camera1': [], 'camera2': [], 'camera3': []}
     # list device folders (e.g., refrigerator or camera)
     i = 0
     cnt_3 = 0  # camera_3
@@ -763,11 +770,22 @@ def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True
                         continue
                     print(f'i: {i}, {x}')
                     try:
+                        vd_info = get_info(x)
                         out_dir_tmp = os.path.join(out_dir, out_dir_activity, out_dir_participant)
                         if is_subclip:
                             start_time, end_time = get_activity_info(x, video_logs)
                             if end_time == 0: continue
                             x = trim(x, start_time=start_time, end_time=end_time, out_dir=out_dir_tmp)
+                            if '1.mp4' in x:
+                                durations['camera1'].append(
+                                    (end_time - start_time, vd_info['fps'], vd_info['duration']))
+                            elif '2.mkv' in x:
+                                durations['camera2'].append(
+                                    (end_time - start_time, vd_info['fps'], vd_info['duration']))
+                            elif '3.mp4' in x:
+                                durations['camera3'].append(
+                                    (end_time - start_time, vd_info['fps'], vd_info['duration']))
+
                         if is_cnn_feature:
                             x_feat = _extract_video_feature(model, x, out_dir=out_dir_tmp)
                         else:
@@ -786,6 +804,17 @@ def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True
                         msg = f'error: {e} on {x}'
                         raise ValueError(msg)
                     i += 1
+
+    for key, vs in durations.items():
+        vs, fps, dura = zip(*vs)
+        print(f'key -> fps: {set(fps)}')
+        fps = fps[0]
+        qs = [0, 0.25, 0.5, 0.75, 0.9, 0.95, 1.0]
+        print(key, f'fps: {fps}. before trimming', [f'{int(v_)}s({q_})' for v_, q_ in zip(np.quantile(dura, q=qs), qs)])
+        print(key, f'fps: {fps}', [f'{int(v_)}s({q_})' for v_, q_ in zip(np.quantile(vs, q=qs), qs)])
+        print(key, f'fps: {fps}', [f'{int(v_ * fps)}({q_})' for v_, q_ in zip(np.quantile(vs, q=qs), qs)])
+        print(key, f'fps: {fps}',
+              [f'{int(v_ * fps)} frames, when q = {q_}' for v_, q_ in zip(np.quantile(vs, q=qs), qs)])
     # print(f'camera_3: {cnt_3}, camera_32 (backup): {cnt_32}')
     meta = {'data': data, 'is_mirror': is_mirror, 'is_cnn_feature': is_cnn_feature}
     return meta
@@ -976,7 +1005,7 @@ def main(random_state=42):
     ###############################################################################################################
     # Step 5. obtain final feature data (X_train and X_test) from CNN features with different methods
     train_meta = cnn_feature2final_feature(train_meta, feature_type='sampling', is_test=False)
-    test_meta = cnn_feature2final_feature(test_meta, feature_type='sampling', is_test=True)
+    test_meta = cnn_feature2final_feature(test_meta, feature_type='sampling', is_test=False)
 
     ###############################################################################################################
     # Step 6. if augment data or not
@@ -985,7 +1014,7 @@ def main(random_state=42):
     X_train_meta, X_train, y_train = augment_train(train_meta, augment_type='camera_1+camera_2+camera_3',
                                                    # +camera_2+camera_3
                                                    is_mirror=False)
-    dim = get_dim(X_train, q=0.9)
+    dim = get_dim(X_train, q=0.9)  # get maximum
     X_train = fix_dim(X_train, dim)
     # X_train = X_train[:100, :]    # for debugging
     # y_train = y_train[:100]  # for debugging
@@ -1012,7 +1041,7 @@ def main(random_state=42):
         end_time = time.time()
         print(f'Plot takes {end_time - start_time:.0f} seconds.')
     res = []
-    for model_name in ['OvRLogReg', 'SVM(linear)', 'RF']:  # ['OvRLogReg', 'SVM(linear)', 'RF']
+    for model_name in ['SVM(linear)', 'RF']:  # ['OvRLogReg', 'SVM(linear)', 'RF']
         print(f'\n\n***{model_name}')
         start_time = time.time()
         if model_name == 'OvRLogReg':
@@ -1082,8 +1111,8 @@ def main(random_state=42):
         # print('\t' + '\n\t'.join([f'{k}->{Counter(vs)}' for k, vs in sorted(err_mp.items())]))
         # for label_ in y_test:
         #     label_ = idx2label[label_]
-        for k, vs in sorted(err_mp.items()):
-            print('\t' + '\n\t'.join([f'{k}->{vs}']))
+        # for k, vs in sorted(err_mp.items()):
+        #     print('\t' + '\n\t'.join([f'{k}->{vs}']))
 
         end_time = time.time()
         print(f'{model_name} takes {end_time - start_time:.0f} seconds.')
