@@ -43,93 +43,6 @@ from features.video.video import trim
 from features.video_info import get_info
 
 
-def _extract_video_feature(model, in_file, out_dir):
-    # in_file = 'data/data-clean/refrigerator/open_close_fridge/1/open_close_fridge_3_1615392727_2.mkv'
-    video_name = os.path.splitext(os.path.basename(in_file))[0]
-    out_file = os.path.join(out_dir, '{}_{}.npy'.format(video_name, model.net_name))
-    if os.path.exists(out_file):
-        return out_file
-
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    batch_sz = 32
-    # sampling: only extract the first frame in each second from the video.
-    video_tensor = load_video(in_file, model.desired_size)
-    # extract features
-    features = model.extract(video_tensor, batch_sz)
-    # save features
-    np.save(os.path.splitext(out_file)[0], features)
-
-    return out_file
-
-
-def _mirror_video(in_file, out_dir):
-    """
-    https://stackoverflow.com/questions/29317262/opencv-video-saving-in-python
-    https://docs.opencv.org/4.5.2/dd/d43/tutorial_py_video_display.html
-    https://stackoverflow.com/questions/61659346/how-to-get-4-character-codec-code-for-videocapture-object-in-opencv
-    Parameters
-    ----------
-    in_file
-    out_dir
-
-    Returns
-    -------
-     in_file = 'out/data/data-clean/refrigerator/open_close_fridge/1/trim-open_close_fridge_10_1615393352_2.mkv'
-    """
-    _, file_name = os.path.split(in_file)
-    # if not os.path.exists(out_dir):
-    #     os.makedirs(out_dir)
-    # copyfile(in_file, os.path.join(out_dir, file_name))
-    file_name, ent = file_name.split('.')
-    out_file = os.path.join(out_dir, file_name + '-mirrored.' + ent)
-    if os.path.exists(out_file):
-        return out_file
-
-    # capture video
-    try:
-        # in_file = 'out/data/data-clean/refrigerator/open_close_fridge/1/trim-open_close_fridge_10_1615393352_2.mkv'
-        if not os.path.exists(in_file):
-            error(f'not exist error: {in_file}')
-        cap = cv2.VideoCapture(in_file)
-        # Get the Default resolutions
-        # fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-        # fourcc = cv2.VideoWriter_fourcc(*'XVID'.lower())
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v'.lower())
-        # fourcc = cv2.VideoWriter_fourcc(
-        #     *f"{fourcc & 255:c},{(fourcc >> 8) & 255:c}, {(fourcc >> 16) & 255:c}, {(fourcc >> 24) & 255:c}")
-        fourcc = cv2.VideoWriter_fourcc(*(chr(fourcc & 0xff) + chr((fourcc >> 8) & 0xff) + chr((fourcc >> 16) & 0xff)
-                                          + chr((fourcc >> 24) & 0xff)))
-        # print(fourcc)
-        frame_width = int(cap.get(3))
-        frame_height = int(cap.get(4))
-        # Define the codec and filename.
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        # out = cv2.VideoWriter(out_file, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), fps, (frame_width, frame_height))
-        out = cv2.VideoWriter(out_file, fourcc, fps, (frame_width, frame_height), isColor=True)
-
-        while True:
-            ret, img = cap.read()
-            # print(ret)
-            if ret:
-                # cv2.imshow('Original Video',img)
-                # flip for truning(fliping) frames of video
-                img2 = cv2.flip(img, 1)  # Horizontal
-                # cv2.imshow('Flipped video',img2)
-                out.write(img2)
-            else:
-                break
-
-        cap.release()
-        out.release()
-        cv2.destroyAllWindows()
-    except cv2.error as e:
-        error(f'Error: {e} on {in_file}')
-    print(f'_mirror_video: {out_file}')
-    return out_file
-
-
 class AnomalyDetector:
 
     def __init__(self, model_name='GMM', model_parameters={}, random_state=42):
@@ -412,36 +325,36 @@ def split_train_test_video(meta, video_type='_1.mp4', test_size=0.3, random_stat
 
     train1, test1 = train_test_split(camera_1, test_size=test_size, random_state=random_state)
 
-    # add '-mirror' into train1 and test1
-    # camera_1
-    new_train1 = []
-    for (f, feat, y) in train1:
-        f = f.replace('_1.mp4', '_1-mirrored.mp4')
-        feat = feat.replace('_1_vgg.npy', '_1-mirrored_vgg.npy')
-        if not os.path.exists(f) or not os.path.exists(feat):
-            print(f'train1: {f} does not exist')
-            continue
-        new_train1.append((f, feat, y))
-    new_test1 = []
-    for (f, feat, y) in test1:
-        f = f.replace('_1.mp4', '_1-mirrored.mp4')
-        feat = feat.replace('_1_vgg.npy', '_1-mirrored_vgg.npy')
-        if not os.path.exists(f) or not os.path.exists(feat):
-            print(f'test1: {f} does not exist')
-            continue
-        new_test1.append((f, feat, y))
-    train1.extend(new_train1)
-    test1.extend(new_test1)
+    # # add '-mirror' into train1 and test1
+    # # camera_1
+    # new_train1 = []
+    # for (f, feat, y) in train1:
+    #     f = f.replace('_1.mp4', '_1-mirrored.mp4')
+    #     feat = feat.replace('_1_mp4.npy', '_1-mirrored_mp4.npy')
+    #     if not os.path.exists(f) or not os.path.exists(feat):
+    #         print(f'train1: {f} does not exist')
+    #         continue
+    #     new_train1.append((f, feat, y))
+    # new_test1 = []
+    # for (f, feat, y) in test1:
+    #     f = f.replace('_1.mp4', '_1-mirrored.mp4')
+    #     feat = feat.replace('_1.mp4.npy', '_1-mirrored_mp4.npy')
+    #     if not os.path.exists(f) or not os.path.exists(feat):
+    #         print(f'test1: {f} does not exist')
+    #         continue
+    #     new_test1.append((f, feat, y))
+    # train1.extend(new_train1)
+    # test1.extend(new_test1)
 
     # camera_2
     train2 = []
     for (f, feat, y) in train1:
-        if '-mirrored.mp4' not in f:
+        if '-mirrored.mp4' not in f:  # add _2.mkv
             f = f.replace('_1.mp4', '_2.mkv')
-            feat = feat.replace('_1_vgg.npy', '_2_vgg.npy')
-        else:
-            f = f.replace('_1-mirrored.mp4', '_2-mirrored.mkv')
-            feat = feat.replace('_1-mirrored_vgg.npy', '_2-mirrored_vgg.npy')
+            feat = feat.replace('_1.mp4', '_2.mkv')
+        # else:
+        #     f = f.replace('_1-mirrored.mp4', '_2-mirrored.mkv')
+        #     feat = feat.replace('_1-mirrored_mkv.npy', '_2-mirrored_mpv.npy')
         if f not in [v1_ for v1_, v2_, v3_ in camera_2]:  # not os.path.exists(f) or not os.path.exists(feat):
             print(f'train2: {f} does not exist')
             continue
@@ -450,10 +363,10 @@ def split_train_test_video(meta, video_type='_1.mp4', test_size=0.3, random_stat
     for (f, feat, y) in test1:
         if '-mirrored.mp4' not in f:
             f = f.replace('_1.mp4', '_2.mkv')
-            feat = feat.replace('_1_vgg.npy', '_2_vgg.npy')
-        else:
-            f = f.replace('_1-mirrored.mp4', '_2-mirrored.mkv')
-            feat = feat.replace('_1-mirrored_vgg.npy', '_2-mirrored_vgg.npy')
+            feat = feat.replace('_1.mp4', '_2.mkv')
+        # else:
+        #     f = f.replace('_1-mirrored.mp4', '_2-mirrored.mkv')
+        #     feat = feat.replace('_1-mirrored_mp4.npy', '_2-mirrored_mkv.npy')
         if f not in [v1_ for v1_, v2_, v3_ in camera_2]:  # not os.path.exists(f) or not os.path.exists(feat):
             print(f'test2: {f} does not exist')
             continue
@@ -464,10 +377,10 @@ def split_train_test_video(meta, video_type='_1.mp4', test_size=0.3, random_stat
     for (f, feat, y) in train1:
         if '-mirrored.mp4' not in f:
             f = f.replace('_1.mp4', '_3.mp4')
-            feat = feat.replace('_1_vgg.npy', '_3_vgg.npy')
-        else:
-            f = f.replace('_1-mirrored.mp4', '_3-mirrored.mp4')
-            feat = feat.replace('_1-mirrored_vgg.npy', '_3-mirrored_vgg.npy')
+            feat = feat.replace('_1.mp4', '_3.mp4')
+        # else:
+        #     f = f.replace('_1-mirrored.mp4', '_3-mirrored.mp4')
+        #     feat = feat.replace('_1-mirrored_mp4.npy', '_3-mirrored_mp4.npy')
         if f not in [v1_ for v1_, v2_, v3_ in camera_3]:  # if not os.path.exists(f) or not os.path.exists(feat):
             # print(f'{f} or {feat} does not exist')
             continue
@@ -476,42 +389,14 @@ def split_train_test_video(meta, video_type='_1.mp4', test_size=0.3, random_stat
     for (f, feat, y) in test1:
         if '-mirrored.mp4' not in f:
             f = f.replace('_1.mp4', '_3.mp4')
-            feat = feat.replace('_1_vgg.npy', '_3_vgg.npy')
-        else:
-            f = f.replace('_1-mirrored.mp4', '_3-mirrored.mp4')
-            feat = feat.replace('_1-mirrored_vgg.npy', '_3-mirrored_vgg.npy')
+            feat = feat.replace('_1.mp4', '_3.mp4')
+        # else:
+        #     f = f.replace('_1-mirrored.mp4', '_3-mirrored.mp4')
+        #     feat = feat.replace('_1-mirrored_mp4.npy', '_3-mirrored_mp4.npy')
         if f not in [v1_ for v1_, v2_, v3_ in camera_3]:  # if not os.path.exists(f) or not os.path.exists(feat):
-            # print(f'{f} or {feat} does not exist')
+            print(f'{f} or {feat} does not exist')
             continue
         test3.append((f, feat, y))
-
-    # # camera_2
-    # train2 = []
-    # for (f, feat, y) in train1:
-    #     f = f.replace('_1.mp4', '_2.mkv')
-    #     feat = feat.replace('_1_vgg.npy', '_2_vgg.npy')
-    #     if not os.path.exists(f) or not os.path.exists(feat): continue
-    #     train2.append((f, feat, y))
-    # test2 = []
-    # for (f, feat, y) in test1:
-    #     f = f.replace('_1.mp4', '_2.mkv')
-    #     feat = feat.replace('_1_vgg.npy', '_2_vgg.npy')
-    #     if not os.path.exists(f) or not os.path.exists(feat): continue
-    #     test2.append((f, feat, y))
-    #
-    # # camera_3
-    # train3 = []
-    # for (f, feat, y) in train1:
-    #     f = f.replace('_1.mp4', '_2.mkv')
-    #     feat = feat.replace('_1_vgg.npy', '_2_vgg.npy')
-    #     if not os.path.exists(f) or not os.path.exists(feat): continue
-    #     train3.append((f, feat, y))
-    # test3 = []
-    # for (f, feat, y) in test1:
-    #     f = f.replace('_1.mp4', '_3.mp4')
-    #     feat = feat.replace('_1_vgg.npy', '_3_vgg.npy')
-    #     if not os.path.exists(f) or not os.path.exists(feat): continue
-    #     test3.append((f, feat, y))
 
     train_meta = {'camera_1': train1, 'camera_2': train2, 'camera_3': train3}
     test_meta = {'camera_1': test1, 'camera_2': test2, 'camera_3': test3}
@@ -723,6 +608,55 @@ def cnn_feature2final_feature(train_meta, feature_type='mean', window_size=5, is
     return train_meta
 
 
+def _extract_3d_keypoint_feature(file_path, out_dir='', is_trimming=True):
+    x = np.load(file_path)  # (frames, 17, 3)
+    n = x.shape[0]
+    x = x.reshape(n, -1)
+
+    if is_trimming:
+        thres = []
+        # find threshold
+        window = []
+        for i in range(1, n):
+            thres.append(sum(v ** 2 for v in x[i] - x[i - 1]))
+        thres = [float(f'{v:.2f}') for v in thres]
+        print(file_path, thres)
+        # quant = np.quantile([float(v) for v in thres], q = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1])
+        # print(quant)
+        # left, right = quant[1], quant[7]      # [left, right]
+        # left, right = quant[1], quant[7]  # [left, right]
+        res = []
+        # only extract the frame (3d keyponts) that has human
+        entry = False
+        entry_idx = 0
+        exit_idx = n
+        for i in range(1, n - 1):
+            if not entry and thres[i] > sum(
+                    thres[:i]):  # find the entry frame (if current thre > sum of previous 5 thres)
+                res.append(x[i])
+                entry_idx = i
+                entry = True
+                print(entry_idx, thres[i])
+            elif entry and thres[i] > sum(thres[
+                                          i + 1:]):  # thres[i] > sum(thres[i+1:i+5+1]) and thres[i+1] == 0.0: # find the entry frame (if current thre > sum of future 5 thres)
+                exit_idx = i
+                print(exit_idx, thres[i])
+                break
+        if exit_idx == n:
+            print(thres)
+            exit_idx = n
+        res = x[entry_idx: exit_idx]
+        print(f'{file_path} entry_idx: {entry_idx}, exit_idx: {exit_idx}, tot: {n}')
+    else:
+        res = x
+    out_file = os.path.join(out_dir, os.path.basename(file_path))
+    tmp_dir = os.path.dirname(out_file)
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+    np.save(out_file, res)
+    return out_file, res.shape[0]
+
+
 def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True, device_type='refrigerator'):
     """ preprocessing the videos:
             e.g., trim and mirror videos,  extract features by CNN
@@ -739,16 +673,18 @@ def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True
     -------
         meta: dictionary
     """
-    if is_cnn_feature:
-        # deep neural network model
-        model_file = './features/video/slim/vgg_16.ckpt'
-        model = CNN_tf('vgg', model_file)
-    else:
-        model = None
+    # if is_cnn_feature:
+    #     # deep neural network model
+    #     model_file = './features/video/slim/vgg_16.ckpt'
+    #     model = CNN_tf('vgg', model_file)
+    # else:
+    #     model = None
+    model = None
 
-    video_logs = parse_logs(in_dir='data/data-clean/log')
+    # video_logs = parse_logs(in_dir='data/data-clean/log')
 
-    issued_videos = pd.read_csv(os.path.join(in_dir[0], 'issued_videos.csv'), header=None).values[:, -1].tolist()
+    issued_videos = pd.read_csv(os.path.join('data/data-clean/refrigerator', 'issued_videos.csv'), header=None).values[
+                    :, -1].tolist()
     data = []  # [(video_path, cnn_feature, y)]
 
     durations = {'camera1': [], 'camera2': [], 'camera3': []}
@@ -775,18 +711,19 @@ def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True
                 # print(participant_dir)
                 # list videos (e.g., 'no_interaction_1_1614038765_1.mp4')
                 for f in sorted(os.listdir(participant_dir)):
+                    print(f)
                     if f.startswith('.'): continue
-                    if ('mp4' not in f) and ('mkv' not in f): continue  # only process video file.
+                    if ('mp4.npy' not in f) and ('mkv.npy' not in f): continue  # only process video file.
                     issued_flg = False
                     for _issued_f in issued_videos:
-                        if f in _issued_f:
+                        if f in _issued_f + '.npy':
                             issued_flg = True
                             break
                     if issued_flg:
                         continue  # issued videos, skip
                     x = os.path.join(participant_dir, f)
-                    if '_3.mp4' in f: cnt_3 += 1
-                    if '_3 2.mp4' in f:  # ignore _3 2.mp4 data.
+                    if '_3.mp4.npy' in f: cnt_3 += 1
+                    if '_3 2.mp4.npy' in f:  # ignore _3 2.mp4 data.
                         cnt_32 += 1
                         continue
                     print(f'i: {i}, {x}')
@@ -794,44 +731,40 @@ def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True
                         # vd_info = get_info(x)
                         out_dir_tmp = os.path.join(out_dir, out_dir_activity, out_dir_participant)
                         if is_subclip:
-                            start_time, end_time = get_activity_info(x, video_logs)
-                            if end_time == 0: continue
-                            x = trim(x, start_time=start_time, end_time=end_time, out_dir=out_dir_tmp)
-                            # if '1.mp4' in x:
-                            #     durations['camera1'].append((end_time-start_time, vd_info['fps'], vd_info['duration']))
-                            # elif '2.mkv' in x:
-                            #     durations['camera2'].append((end_time-start_time, vd_info['fps'], vd_info['duration']))
-                            # elif '3.mp4' in x:
-                            #     durations['camera3'].append((end_time-start_time, vd_info['fps'], vd_info['duration']))
-
-                        if is_cnn_feature:
-                            x_feat = _extract_video_feature(model, x, out_dir=out_dir_tmp)
+                            # start_time, end_time = get_activity_info(x, video_logs)
+                            # only keep the frames (3d_keypoints) that has human.
+                            x_feat, kept_durations = _extract_3d_keypoint_feature(x, out_dir=out_dir_tmp)
+                            # kept_durations: number of frames kept
+                            if kept_durations == 0: continue
+                            if '1.mp4.npy' in x_feat:
+                                durations['camera1'].append((kept_durations, 1, ''))
+                            elif '2.mkv.npy' in x:
+                                durations['camera2'].append((kept_durations, 1, ''))
+                            elif '3.mp4.npy' in x:
+                                durations['camera3'].append((kept_durations, 1, ''))
                         else:
                             x_feat = ''
+
                         data.append((x, x_feat, activity_label))
-                        if is_mirror:
-                            mirrored_x = _mirror_video(x, out_dir=out_dir_tmp)
-                            if is_cnn_feature:
-                                mirrored_x_feat = _extract_video_feature(model, mirrored_x, out_dir=out_dir_tmp)
-                            else:
-                                mirrored_x_feat = ''
-                            data.append((mirrored_x, mirrored_x_feat, activity_label))
-                        # if '_3.mp4' in x or '_3 2.mp4' in x_feat:
-                        #     print(f'---{i}, {x}')
+
                     except Exception as e:
                         msg = f'error: {e} on {x}'
                         raise ValueError(msg)
                     i += 1
 
-    # for key, vs in durations.items():
-    #     vs, fps, dura = zip(*vs)
-    #     print(f'key -> fps: {set(fps)}')
-    #     fps = fps[0]
-    #     qs = [0, 0.25, 0.5, 0.75, 0.9, 0.95, 1.0]
-    #     print(key, f'fps: {fps}. before trimming', [f'{int(v_)}s({q_})' for v_, q_ in zip(np.quantile(dura, q=qs), qs)])
-    #     print(key, f'fps: {fps}', [f'{int(v_)}s({q_})' for v_, q_ in zip(np.quantile(vs, q=qs), qs)])
-    #     print(key, f'fps: {fps}',[f'{int(v_ * fps)}({q_})' for v_, q_ in zip(np.quantile(vs, q=qs), qs)])
-    #     print(key, f'fps: {fps}', [f'{int(v_*fps)} frames, when q = {q_}' for v_, q_ in zip(np.quantile(vs, q=qs), qs)])
+    for key, vs in durations.items():
+        if len(vs) == 0:
+            print(key, vs)
+            continue
+        trimmed_dura, fps, dura = zip(*vs)
+        print(f'key -> fps: {set(fps)}, n: {len(vs)}')
+        fps = fps[0]
+        qs = [0, 0.25, 0.5, 0.75, 0.9, 0.95, 1.0]
+        # print(key, f'fps: {fps}. before trimming', [f'{int(v_)}s({q_})' for v_, q_ in zip(np.quantile(dura, q=qs), qs)])
+        print('after trimming')
+        print(key, f'fps: {fps}', [f'{int(v_)}({q_})' for v_, q_ in zip(np.quantile(trimmed_dura, q=qs), qs)])
+        # print(key, f'fps: {fps}',[f'{int(v_ * fps)}({q_})' for v_, q_ in zip(np.quantile(trimmed_dura, q=qs), qs)])
+        # print(key, f'fps: {fps}', [f'{int(v_*fps)} frames, when q = {q_}' for v_, q_ in zip(np.quantile(trimmed_dura, q=qs), qs)])
     # print(f'camera_3: {cnt_3}, camera_32 (backup): {cnt_32}')
     meta = {'data': data, 'is_mirror': is_mirror, 'is_cnn_feature': is_cnn_feature}
     return meta
@@ -960,28 +893,36 @@ def make_confusion_matrix(cf,
     if title:
         plt.title(title)
     out_file = os.path.join(out_dir, f'{title}-confusion_matrix')
+    # print(out_file)
     plt.savefig(out_file, bbox_inches='tight', dpi=300)
     plt.show()
+    return out_file
 
 
-def main(random_state=42):
+label2idx = {'no_interaction': 0, 'open_close_fridge': 1, 'put_back_item': 2, 'screen_interaction': 3,
+             'take_out_item': 4}
+idx2label = {0: 'no_interaction', 1: 'open_close_fridge', 2: 'put_back_item', 3: 'screen_interaction',
+             4: 'take_out_item'}
+
+
+def main(random_state=42, root_dir='out3d_pred'):
     ###############################################################################################################
     # Step 1. check if the Xy.dat exists. Xy.dat includes the train and test set.
-    in_dir = 'out/data/data-clean/refrigerator'
-    Xy_train_test_file = f'{in_dir}/Xy_train_test.dat'
+    in_dir = f'{root_dir}/data/data-clean/refrigerator'
+    Xy_train_test_file = f'{in_dir}/Xy_train_test_3d_keypoints.dat'
     if os.path.exists(Xy_train_test_file):
         os.remove(Xy_train_test_file)
 
     if not os.path.exists(Xy_train_test_file):
         ###############################################################################################################
         # Step 2. Get all cnn_features from videos
-        Xy_cnn_features_file = f'{in_dir}/Xy_cnn_features.dat'
+        Xy_cnn_features_file = f'{in_dir}/Xy_3d_keypoints_features.dat'
         if os.path.exists(Xy_cnn_features_file): os.remove(Xy_cnn_features_file)
         if not os.path.exists(Xy_cnn_features_file):
-            in_raw_dir = 'data/data-clean/refrigerator'
+            in_raw_dir = 'videopose3d/out3d_pred/data/data-clean/refrigerator'
             # Here we preprocessing all the videos (such as, trim and mirror), but if uses all of them can be seen
             # in the following part. Also, extract the features by CNN
-            meta = gen_Xy([in_raw_dir], out_dir=in_dir, is_subclip=True, is_mirror=False, is_cnn_feature=True)
+            meta = gen_Xy([in_raw_dir], out_dir=in_dir, is_subclip=True, is_mirror=False, is_cnn_feature=False)
             dump_data(meta, out_file=Xy_cnn_features_file)
 
         ###############################################################################################################
@@ -991,10 +932,6 @@ def main(random_state=42):
             # video_type = {'_1.mp4': front view,'_3.mp4': side view and mirrored (up to down) view, 'mkv': side view}
             video_type = '_1.mp4'  # split the train and test based on 'camera_1' (i.e, '_1.mp4')
             test_size = 0.3
-            label2idx = {'no_interaction': 0, 'open_close_fridge': 1, 'put_back_item': 2, 'screen_interaction': 3,
-                         'take_out_item': 4}
-            idx2label = {0: 'no_interaction', 1: 'open_close_fridge', 2: 'put_back_item', 3: 'screen_interaction',
-                         4: 'take_out_item'}
             ###############################################################################################################
             # Step 3.1. Split the videos capured by camera 1 (i.e., front view-'_1.mp4') to train and test set.
             train_meta, test_meta = split_train_test_video(meta, video_type, test_size=test_size,
@@ -1023,6 +960,8 @@ def main(random_state=42):
     # Step 5. obtain final feature data (X_train and X_test) from CNN features with different methods
     train_meta = cnn_feature2final_feature(train_meta, feature_type='fixed_segments', is_test=False)
     test_meta = cnn_feature2final_feature(test_meta, feature_type='fixed_segments', is_test=False)
+    # train_meta = cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False)
+    # test_meta = cnn_feature2final_feature(test_meta, feature_type='mean', is_test=False)
 
     ###############################################################################################################
     # Step 6. if augment data or not
@@ -1051,14 +990,14 @@ def main(random_state=42):
     X_train = scaler.transform(X_train)
     X_test = scaler.transform(X_test)
 
-    is_plot = True
+    is_plot = False
     if is_plot:
         start_time = time.time()
         tsne_plot(X_train, y_train, [idx2label[i] for i in y_train], title='refrigerator', out_dir=in_dir)
         end_time = time.time()
         print(f'Plot takes {end_time - start_time:.0f} seconds.')
     res = []
-    for model_name in ['SVM(linear)', 'RF']:  # ['OvRLogReg', 'SVM(linear)', 'RF']
+    for model_name in ['OvRLogReg', 'SVM(linear)', 'RF']:  # ['OvRLogReg', 'SVM(linear)', 'RF']
         print(f'\n\n***{model_name}')
         start_time = time.time()
         if model_name == 'OvRLogReg':
@@ -1107,9 +1046,10 @@ def main(random_state=42):
         print(f'confusion_matrix: {cm_file}')
         # 5 get misclassification
         err_mp = {}
-        misclassified_dir = 'out/misclassified'
-        if os.path.exists(misclassified_dir):
-            shutil.rmtree(misclassified_dir)
+        misclassified_dir = f'{root_dir}/misclassified'
+        _tmp_dir = os.path.join(misclassified_dir, model_name)
+        if os.path.exists(_tmp_dir):
+            shutil.rmtree(_tmp_dir)
         for x_test_, y_t, y_p in zip(X_test_meta, y_test, y_preds):
             if y_t != y_p:
                 name = f'{idx2label[y_t]}({y_t}):{x_test_}'
@@ -1119,17 +1059,20 @@ def main(random_state=42):
                     err_mp[name].append(f'{idx2label[y_p]}({y_p})')
                 # copy misclassified videos to dst
                 # print(x_test_)
-                tmp_out_dir = os.path.join(misclassified_dir, model_name, idx2label[y_t] + '->')
+                tmp_out_dir_ = os.path.join(misclassified_dir, model_name, idx2label[y_t] + '->')
+                out_file_ = os.path.join(tmp_out_dir_, os.path.relpath(x_test_, 'videopose3d/out3d_pred/'))
+                tmp_out_dir = os.path.dirname(out_file_)
                 if not os.path.exists(tmp_out_dir):
                     os.makedirs(tmp_out_dir)
-                copyfile(x_test_, os.path.join(tmp_out_dir, os.path.split(x_test_)[-1]))
+                print(x_test_, y_t, y_p)
+                copyfile(x_test_, out_file_)
                 # print(f'{mp[y_t]} -> {mp[y_p]}')
-        print(f'***misclassified classes: {len(err_mp.keys())}')
-        print('\t' + '\n\t'.join([f'{k}->{Counter(vs)}' for k, vs in sorted(err_mp.items())]))
-        for label_ in y_test:
-            label_ = idx2label[label_]
-        for k, vs in sorted(err_mp.items()):
-            print('\t' + '\n\t'.join([f'{k}->{vs}']))
+        # print(f'***misclassified classes: {len(err_mp.keys())}')
+        # print('\t' + '\n\t'.join([f'{k}->{Counter(vs)}' for k, vs in sorted(err_mp.items())]))
+        # for label_ in y_test:
+        #     label_ = idx2label[label_]
+        # for k, vs in sorted(err_mp.items()):
+        #     print('\t' + '\n\t'.join([f'{k}->{vs}']))
 
         end_time = time.time()
         print(f'{model_name} takes {end_time - start_time:.0f} seconds.')

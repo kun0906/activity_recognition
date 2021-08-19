@@ -767,9 +767,11 @@ if args.render:
         prediction += prediction_traj
 
     if args.viz_export is not None:
-        print('Exporting joint positions to', args.viz_export)
+        print('Exporting joint positions to', os.path.abspath(args.viz_export + '.npy'))
         # Predictions are in camera space
         np.save(args.viz_export, prediction)
+        # if you also want to generated mp4. just comment exit(0)
+        exit(0)
 
     if args.viz_output is not None:
         if ground_truth is not None:

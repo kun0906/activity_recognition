@@ -112,7 +112,8 @@ class TemporalModel(TemporalModelBase):
             self.causal_shift.append((filter_widths[i] // 2 * next_dilation) if causal else 0)
 
             layers_conv.append(nn.Conv1d(channels, channels,
-                                         filter_widths[i] if not dense else (2 * self.pad[-1] + 1),
+                                         filter_widths[i] if not dense else (2 * self.pad[-1] + 1),  # kernel_size.
+                                         # default stride = 1
                                          dilation=next_dilation if not dense else 1,
                                          bias=False))
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
@@ -125,17 +126,21 @@ class TemporalModel(TemporalModelBase):
         self.layers_bn = nn.ModuleList(layers_bn)
 
     def _forward_blocks(self, x):
+        print(f'input_x_shape: {x.shape}')
         x = self.drop(self.relu(self.expand_bn(self.expand_conv(x))))
-
+        print(f'expand_conv: {self.expand_conv}')
         for i in range(len(self.pad) - 1):
             pad = self.pad[i + 1]
             shift = self.causal_shift[i + 1]
             res = x[:, :, pad + shift: x.shape[2] - pad + shift]
 
             x = self.drop(self.relu(self.layers_bn[2 * i](self.layers_conv[2 * i](x))))
-            x = res + self.drop(self.relu(self.layers_bn[2 * i + 1](self.layers_conv[2 * i + 1](x))))
+            print(f'i:{i}, layers_conv[2*i]  : ', self.layers_conv[2 * i], f' out_size: {x.shape}')
+            x = res + self.drop(self.relu(self.layers_bn[2 * i + 1](self.layers_conv[2 * i + 1](x))))  # ResNet
+            print(f'i:{i}, layers_conv[2*i+1]: ', self.layers_conv[2 * i + 1], f' out_size: {x.shape}')
 
         x = self.shrink(x)
+        print(f'shrink: {self.shrink}')
         return x
 
 

@@ -172,7 +172,7 @@ def extract_feature_fixed_segments(file_path, dim=5):
         res = x
     elif len(x) < dim:
         print(len(x), dim, file_path)
-        res = np.concatenate([x, np.zeros(shape=(dim - len(x), len(x[0])))], axis=0)
+        res = np.concatenate([x, np.zeros(shape=(dim - len(x), len(x[0])))], axis=0)  # row first
     else:
         res = []
         window_size = len(x) // dim
@@ -186,9 +186,7 @@ def extract_feature_fixed_segments(file_path, dim=5):
                     break
                 else:
                     res = np.concatenate([res, np.mean(x[i:i + window_size], axis=0)])
-
     return res.reshape(1, -1)
-
 
 def extract_feature_uChicago(file_path):
     arr = np.load(file_path)

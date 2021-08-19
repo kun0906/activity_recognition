@@ -63,9 +63,9 @@ def decode(filename):
 
 
 if __name__ == '__main__':
-    if os.path.basename(os.getcwd()) != 'data':
-        print('This script must be launched from the "data" directory')
-        exit(0)
+    # if os.path.basename(os.getcwd()) != 'data':
+    #     print('This script must be launched from the "data" directory')
+    #     exit(0)
 
     parser = argparse.ArgumentParser(description='Custom dataset creator')
     parser.add_argument('-i', '--input', type=str, default='', metavar='PATH', help='detections directory')
@@ -87,18 +87,46 @@ if __name__ == '__main__':
 
     output = {}
     file_list = glob(args.input + '/**/*.npz', recursive=True)
-    for i, f in enumerate(file_list):
-        print(i, f)
+    camera1 = [f for f in file_list if '1.mp4' in f]
+    camera2 = [f for f in file_list if '2.mpk' in f]
+    camera3 = [f for f in file_list if '3.mp4' in f]
+    camera32 = [f for f in file_list if '3 2.mp4' in f]
+    print(f'total videos: {len(file_list)}, in which, camera1={len(camera1)}, camera2={len(camera2)}, '
+          f'camera3={len(camera3)}, camera32={len(camera32)}')
+    error_lst = []
+    camera1 = 0
+    camera2 = 0
+    camera3 = 0
+    camera32 = 0
+    for i, f in enumerate(sorted(file_list)):
+        # print(i, f)
         try:
             canonical_name = os.path.splitext(os.path.basename(f))[0]
             data, video_metadata = decode(f)
             output[canonical_name] = {}
             output[canonical_name]['custom'] = [data[0]['keypoints'].astype('float32')]
             metadata['video_metadata'][canonical_name] = video_metadata
+            if '1.mp4' in f:
+                camera1 += 1
+            elif '2.mkv' in f:
+                camera2 += 1
+            elif '3.mp4' in f:
+                camera3 += 1
+            elif '3 2.mp4' in f:
+                camera32 += 1
+            else:
+                pass
         except Exception as e:
             print(f'Error: {e}, i={i}, {f}')
+            error_lst.append((i, f, e))
 
+    print(f'len(error_lst) ={len(error_lst)}, {error_lst}.')
     print('Saving...')
-    print(os.path.abspath(output_prefix_2d + args.output))
-    np.savez_compressed(output_prefix_2d + args.output, positions_2d=output, metadata=metadata)
+    basename = output_prefix_2d + os.path.basename(args.output)
+    out_file = os.path.join(os.path.dirname(args.output), basename)
+    print(os.path.abspath(out_file))
+    np.savez_compressed(out_file, positions_2d=output, metadata=metadata)
+    print(f'total videos: {camera1 + camera2 + camera3 + camera32}, in which, camera1={camera1}, '
+          f'camera2={camera2}, '
+          f'camera3={camera3}, camera32={camera32}')
     print('Done.')

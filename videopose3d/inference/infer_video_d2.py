@@ -95,11 +95,19 @@ def main(args):
         im_list = glob.iglob(args.im_or_folder + '/**/*.' + args.image_ext, recursive=True)
     else:
         im_list = [args.im_or_folder]
-
-    for video_name in im_list:
+    im_list = list(im_list)
+    camera1 = [f for f in im_list if '1.mp4' in f]
+    camera2 = [f for f in im_list if '2.mkv' in f]
+    camera3 = [f for f in im_list if '3.mp4' in f]
+    camera32 = [f for f in im_list if '3 2.mp4' in f]
+    print(f'total videos: {len(im_list)}, in which, camera1={len(camera1)}, camera2={len(camera2)}, '
+          f'camera3={len(camera3)}, camera32={len(camera32)}')
+    for i, video_name in enumerate(sorted(im_list, reverse=True)):
         # out_name = os.path.join(args.output_dir, os.path.basename(video_name))
-        out_name = os.path.join(args.output_dir, os.path.relpath(video_name, '../../'))
-        print(out_name)
+        out_name = os.path.join(args.output_dir, os.path.relpath(video_name, '../'))
+        print(f'i: {i}, out_file: ', out_name + '.npz')
+        if os.path.exists(out_name + '.npz'): continue
+
         tmp_dir = os.path.dirname(out_name)
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
@@ -111,7 +119,7 @@ def main(args):
 
         for frame_i, im in enumerate(read_video(video_name)):
             t = time.time()
-            outputs = predictor(im)['instances'].to('gpu')
+            outputs = predictor(im)['instances'].to('cpu')
 
             print('Frame {} processed in {:.3f}s'.format(frame_i, time.time() - t))
 
@@ -148,7 +156,8 @@ def main(args):
         }
 
         np.savez_compressed(out_name, boxes=boxes, segments=segments, keypoints=keypoints, metadata=metadata)
-
+        print(f'total videos: {len(im_list)}, in which, camera1={len(camera1)}, camera2={len(camera2)}, '
+              f'camera3={len(camera3)}, camera32={len(camera32)}')
 
 if __name__ == '__main__':
     setup_logger()

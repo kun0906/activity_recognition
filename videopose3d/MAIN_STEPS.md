@@ -54,7 +54,7 @@
     https://detectron2.readthedocs.io/en/latest/tutorials/install.html
     
     Note: without GPU
-        modify "python3.7/site-packages/detectron2/config/defaults.py" 
+   modify "python3.7/site-packages/detectron2/config/defaults.py" 
         # _C.MODEL.DEVICE = "cuda" 
         _C.MODEL.DEVICE = "cpu"
         
@@ -62,31 +62,73 @@
     
     (not necessary)     
     install certfi
-    Error: 
+   Error: 
         ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1091)
     Solution:
         python3.7 -c "import sys; print('\n'.join(sys.path))"
-        /Applications/Python\ 3.7/Install\ Certificates.command
-        https://stackoverflow.com/questions/44649449/brew-installation-of-python-3-6-1-ssl-certificate-verify-failed-certificate/44649450
-        https://stackoverflow.com/questions/42098126/mac-osx-python-ssl-sslerror-ssl-certificate-verify-failed-certificate-verify
+   /Applications/Python\ 3.7/Install\ Certificates.command
+   https://stackoverflow.com/questions/44649449/brew-installation-of-python-3-6-1-ssl-certificate-verify-failed-certificate/44649450
+   https://stackoverflow.com/questions/42098126/mac-osx-python-ssl-sslerror-ssl-certificate-verify-failed-certificate-verify
 
 2. inference
-    # generate 2D keypoint predictions from videos 
-    cd inference   
-    # python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out_directory --image-ext mp4 input_directory
-    # python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out --image-ext mp4 ../../data/demo
-    python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out3d --image-ext mp4 ../../data/data-clean/refrigerator
-     
-    # create customized dataset "data/data_2d_custom_myvideos.npz"
-    cd ../data 
-    #python3.7 prepare_data_2d_custom.py -i ../inference/out3d -o myvideos
-    python3.7 prepare_data_2d_custom.py -i ../inference/out3d -o 2d_keypoints
-    cd ..
+   # generate 2D keypoint predictions from videos
+   cd inference
+   # python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out_directory --image-ext mp4 input_directory
+   # python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out --image-ext mp4 ../../data/demo
+   python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out3d --image-ext mp4
+   ../../data/data-clean/refrigerator python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml
+   --output-dir out3d --image-ext mkv ../../data/data-clean/refrigerator
+
+   # create customized dataset "data/data_2d_custom_myvideos.npz"
+   cd ../data
+   # python3.7 prepare_data_2d_custom.py -i ../inference/out3d -o myvideos
+   python3.7 prepare_data_2d_custom.py -i ../inference/out3d -o 2d_keypoints cd ..
+
+   # get 3d prediction
+   (only for one video)
+   # python3.7 run.py -d custom -k myvideos -arc 3,3,3,3,3 -c checkpoint --evaluate pretrained_h36m_detectron_coco.bin --render --viz-subject ask_time_1_1614904536_1.mp4 --viz-action custom --viz-camera 0 --viz-video ../data/demo/ask_time_1_1614904536_1.mp4 --viz-output output.mp4 --viz-size 6
+   python3.7 run.py -d custom -k 2d_keypoints -arc 3,3,3,3,3 -c checkpoint --evaluate pretrained_h36m_detectron_coco.bin
+   --render --viz-subject ask_time_1_1614904536_1.mp4 --viz-action custom --viz-camera 0 --viz-video
+   ../data/demo/ask_time_1_1614904536_1.mp4 --viz-output output.mp4 --viz-size 6
+
+   (multi-videos)
+   python3.7 predict.py
+
+# run.py
+
+1. test_generator.next_epoch()
+   the generator will augment the data by flip each video.
+    1. For each video, it will pad zero to the 2d keypoint data. e.g., the input 2d keypoint is (1, 351, 17, 2).After
+       padding, the input data will be (1, 593, 17, 2)
+       (1, 351, 17, 2):
+       1 is number of input data 351 is the number of frames of the video 17 is the number of 2d keypoints in each frame
+       2 is the coordinates (x, y) of each keypoint
+
+2. predicted_3d_pos = model_pos(inputs_2d)
+   input_2d is (2, 593, 17, 2)
+   predicted_3d_pos is (1, 351, 17, 3)
+
+    2.2 self._forward_blocks(x)
+        x: (2, 34, 593)-> 2 is batch_size, 34 is the in_dim, 593 is the number of channels (input channels)
+        x = self.drop(self.relu(self.expand_bn(self.expand_conv(x))))
+        self.expand_conv(x): (2, 1024, 591)-> 1024 is out_dim (channels), 591 is the size for each channel
+        
+        x : (2, 1024, 591)
+        for i in blocks (4 blocks):
+            x = self.layers_conv[2 * i](x)))
+        i=0: (2, 1024, 585)
+        i=1: (2, 1024, 567)
+        i=0: (2, 1024, 513)
+        i=0: (2, 1024, 351)
     
-    # get 3d prediction
-    (only for one video)
-    #python3.7 run.py -d custom -k myvideos -arc 3,3,3,3,3 -c checkpoint --evaluate pretrained_h36m_detectron_coco.bin --render --viz-subject ask_time_1_1614904536_1.mp4 --viz-action custom --viz-camera 0 --viz-video ../data/demo/ask_time_1_1614904536_1.mp4 --viz-output output.mp4 --viz-size 6
-    python3.7 run.py -d custom -k 2d_keypoints -arc 3,3,3,3,3 -c checkpoint --evaluate pretrained_h36m_detectron_coco.bin --render --viz-subject ask_time_1_1614904536_1.mp4 --viz-action custom --viz-camera 0 --viz-video ../data/demo/ask_time_1_1614904536_1.mp4 --viz-output output.mp4 --viz-size 6
+    x = shrink(x)
+    x: (2, 51, 351)
+    x = view(x) # resize x 
+    x: (2, 351, 17, 3)
+
+
     
-    (multi-videos)
-    python3.7 predict.py
+
+
+
+
