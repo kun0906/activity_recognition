@@ -35,9 +35,9 @@ def get_3d_keypoints_demo():
 	print('finished')
 
 
-def get_3d_keypoints():
+def get_3d_keypoints(in_dir='examples/datasets/data-clean/refrigerator/', out_dir='examples/out/keypoints3d'):
 	# step 3: use 2d keypoints to obtain 3d_keypoints
-	in_dir = 'examples/datasets/data-clean/refrigerator/'  # mp4
+	# in_dir = 'examples/datasets/data-clean/refrigerator/'  # mp4
 	camera1 = glob(in_dir + '/**/*1.mp4', recursive=True)
 	camera2 = glob(in_dir + '/**/*2.mkv', recursive=True)
 	camera3 = glob(in_dir + '/**/*3.mp4', recursive=True)
@@ -48,18 +48,23 @@ def get_3d_keypoints():
 			print(i, f)
 			f_name = os.path.basename(f)
 			# save the predicted 3d keypoints to out_file
-			out_file = os.path.join('examples/classical_ml/out/keypoints3d', os.path.relpath(f, 'examples'))
-			out_dir = os.path.dirname(out_file)
-			if not os.path.exists(out_dir):
-				os.makedirs(out_dir)
+			out_file = os.path.join(out_dir, os.path.relpath(f, 'examples'))
+			_out_dir = os.path.dirname(out_file)
+			if not os.path.exists(_out_dir):
+				os.makedirs(_out_dir)
 			viz_export = out_file  # npy
+			if os.path.exists(viz_export) or os.path.exists(viz_export + '.mp4'):
+				continue
 			# viz_output = out_file[:-3]    # pred.mp4
 			cmd = f'python3.7 ar/features/videopose3d/2d_to_3d-single.py --viz-subject {f_name} --viz-video {f} --viz-export {viz_export} --viz-output {viz_export}'
 			os.system(cmd)
-			return
+		# return
 	print('finished')
 
 
+def main(in_dir, out_dir):
+	get_3d_keypoints(in_dir, out_dir)
+
+
 if __name__ == '__main__':
-	# get_3d_keypoints()
-	get_3d_keypoints_demo()
+	main()

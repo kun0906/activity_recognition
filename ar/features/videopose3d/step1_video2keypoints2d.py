@@ -4,6 +4,11 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
+"""
+https://github.com/facebookresearch/VideoPose3D/issues/57
+The inputs are in COCO format: 2dkeypoints, however, the output are in Human3.6M
+
+"""
 
 """Perform inference on a single video or all videos with a certain extension
 (e.g., .mp4) in a folder.
@@ -86,17 +91,17 @@ def read_video(filename):
         yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
 
 
-def main(args):
-    cfg = get_cfg()
-    cfg.merge_from_file(model_zoo.get_config_file(args.cfg))
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(args.cfg)
-    print(cfg)
-    predictor = DefaultPredictor(cfg)  # detectron2 API
+def _main(args):
+	cfg = get_cfg()
+	cfg.merge_from_file(model_zoo.get_config_file(args.cfg))
+	cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7
+	cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(args.cfg)
+	print(cfg)
+	predictor = DefaultPredictor(cfg)  # detectron2 API
 
-    if os.path.isdir(args.im_or_folder):
-        im_list = glob.iglob(args.im_or_folder + '/**/*.' + args.image_ext, recursive=True)
-    else:
+	if os.path.isdir(args.im_or_folder):
+		im_list = glob.iglob(args.im_or_folder + '/**/*.' + args.image_ext, recursive=True)
+	else:
         im_list = [args.im_or_folder]
     im_list = list(im_list)
     camera1 = [f for f in im_list if '1.mp4' in f]
@@ -163,19 +168,23 @@ def main(args):
               f'camera3={len(camera3)}, camera32={len(camera32)}')
 
 
-if __name__ == '__main__':
-    setup_logger()
-    args = parse_args()
-    args.cfg = 'COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml'
-    args.output_dir = 'examples/classical_ml/out/keypoints2d'
-    # args.image_ext = 'mp4'
-    args.image_ext = 'mkv'
-    args.im_or_folder = 'examples/data/data-clean/refrigerator'
+def main(in_dir='examples/data/data-clean/refrigerator', out_dir='examples/out/', image_type='mkv'):
+	setup_logger()
+	args = parse_args()
+	args.cfg = 'COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml'
+	args.output_dir = out_dir
+	# args.image_ext = 'mp4'
+	args.image_ext = image_type
+	args.im_or_folder = in_dir  # 'examples/data/data-clean/refrigerator'
 
-    """
+	"""
 		python3.7 infer_video_d2.py --cfg COCO-Keypoints/keypoint_rcnn_R_101_FPN_3x.yaml --output-dir out3d --image-ext mp4
    ../../data/data-clean/refrigerator 
 
 	"""
-    print(args)
-    main(args)
+	print(args)
+	_main(args)
+
+
+if __name__ == '__main__':
+	main()

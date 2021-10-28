@@ -18,7 +18,6 @@ from datetime import datetime
 from logging import error
 from shutil import copyfile
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -35,12 +34,8 @@ from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-from ar.features.feature import extract_feature_average, extract_feature_sampling, load_data, dump_data, \
-    extract_feature_sampling_mean, extract_feature_fixed_segments
-from ar.features.cnn.model_tf import CNN_tf
-from ar.features.cnn.utils import load_video
-from ar.features.video import trim
-from ar.features.video_info import get_info
+from ar.features.feature import extract_feature_average, load_data, dump_data, \
+	extract_feature_sampling_mean, extract_feature_fixed_segments
 
 IN_DIR = 'examples/data'
 OUT_DIR = 'examples/out'

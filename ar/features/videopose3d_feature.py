@@ -1,3 +1,12 @@
+""" Using the "videopose3d" to get the 3d keypoints' features.
+
+	Instructions:
+		1. PYTHONPATH=. python3.7 ar/features/videopose3d_feature.py
+
+"""
+# Email: kun.bj@outlook.com
+# License: xxx
+
 #
 # def main():
 #     # step 1: use detectron2 to get 2d_keypoints
@@ -51,16 +60,24 @@
 import step1_video2keypoints2d
 import step2_zip_2d
 import step3_2d_to_3d
+from ar.utils.utils import timer
 
 
-def main():
+@timer
+def gen_3dkeypoints(in_dir, out_dir):
 	# step1: video to 2d keypoints
-	step1_video2keypoints2d.main()
+	out_2d_dir = f'{out_dir}/keypoints2d'  # individual kypoints2d
+	step1_video2keypoints2d.main(in_dir, out_2d_dir, image_type='mp4')
+	step1_video2keypoints2d.main(in_dir, out_2d_dir, image_type='mkv')
 	# step 2: aggregate all the 2d keypoints and only extract the needed info (such as (x,y) coordinates and pred_prob)
-	step2_zip_2d.main()
+	out_agg_2d_dir = f'{out_dir}/keypoints2d_agg'
+	step2_zip_2d.main(in_dir=out_2d_dir, out_dir=out_agg_2d_dir)  #
 	# step3: 2d to 3d keypoints
-	step3_2d_to_3d.main()
+	out_3d_dir = f'{out_dir}/keypoints3d'
+	step3_2d_to_3d.main(in_dir=in_dir, out_dir=out_3d_dir)
 
 
 if __name__ == '__main__':
-	main()
+	in_dir = 'examples/datasets/data-clean/refrigerator'
+	out_dir = 'examples/out'
+	gen_3dkeypoints(in_dir, out_dir)

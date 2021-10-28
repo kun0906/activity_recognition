@@ -1,3 +1,12 @@
+""" Feature engineering
+	1. feature extraction
+	2. feature transformation
+	3. feature selection
+
+"""
+# Email: kun.bj@outlook.com
+# License: xxx
+
 import os
 import pickle
 from collections import OrderedDict

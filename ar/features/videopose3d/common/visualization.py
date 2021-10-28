@@ -105,6 +105,7 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
         lines_3d.append([])
         trajectories.append(data[:, 0, [0, 1]])
     poses = list(poses.values())
+    # poses[0][:, 16, :] = 0   # set each keypoint = 0 (black)
 
     # Decode video
     if input_video_path is None:
@@ -166,14 +167,14 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
                 if len(parents) == keypoints.shape[1] and keypoints_metadata['layout_name'] != 'coco':
                     # Draw skeleton only if keypoints match (otherwise we don't have the parents definition)
                     lines.append(ax_in.plot([keypoints[i, j, 0], keypoints[i, j_parent, 0]],
-                                            [keypoints[i, j, 1], keypoints[i, j_parent, 1]], color='pink'))
+                                            [keypoints[i, j, 1], keypoints[i, j_parent, 1]], 'v', color='pink'))
 
                 col = 'red' if j in skeleton.joints_right() else 'black'
                 for n, ax in enumerate(ax_3d):
                     pos = poses[n][i]
                     lines_3d[n].append(ax.plot([pos[j, 0], pos[j_parent, 0]],
                                                [pos[j, 1], pos[j_parent, 1]],
-                                               [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col))
+                                               [pos[j, 2], pos[j_parent, 2]], 'x-', zdir='z', c=col))
 
             points = ax_in.scatter(*keypoints[i].T, 10, color=colors_2d, edgecolors='white', zorder=10)
 
@@ -207,6 +208,10 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
 	    Writer = writers['ffmpeg']
 	    writer = Writer(fps=fps, metadata={}, bitrate=bitrate)
 	    anim.save(output, writer=writer)
+    elif output.endswith('.mkv'):
+	    Writer = writers['ffmpeg']
+	    writer = Writer(fps=fps, metadata={}, bitrate=bitrate)
+	    anim.save(output + '.mp4', writer=writer)
     elif output.endswith('.gif'):
 	    anim.save(output, dpi=80, writer='imagemagick')
     else:

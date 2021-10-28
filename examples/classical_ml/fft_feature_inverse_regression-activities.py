@@ -3,7 +3,6 @@
 """
 import glob
 import os
-import shutil
 from collections import defaultdict, Counter
 from copy import deepcopy
 from shutil import copyfile
@@ -21,7 +20,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sliced import SlicedInverseRegression
-from scipy.stats import skew, kurtosis
 
 from ar.features.feature import _get_fft
 from ar.utils.utils import make_confusion_matrix, load, dump, check_path, timer
@@ -47,10 +45,6 @@ keypoints = [
 
 
 def get_missclassified(cm, test_y, pred_y, test_raw_files, model_name, idx2label):
-	try:
-		shutil.rmtree(f'examples/classical_ml/out/misclassified/{model_name}')
-	except Exception as e:
-		print(e)
 	res = defaultdict(list)
 	# n, m = cm.shape
 	for i, (y_, y_2) in enumerate(zip(test_y, pred_y)):
@@ -58,7 +52,7 @@ def get_missclassified(cm, test_y, pred_y, test_raw_files, model_name, idx2label
 			# print(y_, y_2, test_raw_files[i])
 			in_file = os.path.relpath(test_raw_files[i], 'examples/classical_ml/out/keypoints3d-20210907/keypoints3d/')
 			# tmp_file = os.path.relpath(in_file, f'data/data-clean/refrigerator/{idx2label[y_]}')
-			out_file = f'examples/classical_ml/out/misclassified/{model_name}/{idx2label[y_]}->/{idx2label[y_2]}/{in_file}'[
+			out_file = f'examples/classical_ml/out/misclassified_act/{model_name}/{idx2label[y_]}->/{idx2label[y_2]}/{in_file}'[
 			           :-4]
 			check_path(out_file)
 			try:
@@ -104,12 +98,6 @@ def get_fft_features(raw_data='', m=84, keypoint=7):
 			fft_features = [np.mean(data), np.std(data)]
 		# fft_features = list(np.quantile(data, q=[0, 0.25, 0.5, 0.75, 1]))
 		# fft_features = list(np.quantile(data, q = [0, 0.25, 0.5, 0.75, 1])) + [np.mean(data), np.std(data)]
-		elif flg == 'skew':
-			# fft_features = [np.min(data), np.max(data)]
-			# fft_features = [np.mean(data), np.std(data)]
-			# fft_features = [skew(data)]
-			# fft_features = [np.min(data), np.mean(data), np.std(data),  np.max(data)]
-			fft_features = [np.mean(data), np.std(data), skew(data), kurtosis(data), np.min(data), np.max(data)]
 		else:
 			n = len(data)
 			step = int(np.ceil(n / m))
@@ -120,7 +108,7 @@ def get_fft_features(raw_data='', m=84, keypoint=7):
 				if flg2 == 'stats':
 					# tmp = list(np.quantile(vs, q = [0, 0.5, 1] )) # [0, 0.25, 0.5, 0.75, 1]+ [np.mean(vs), np.std(vs)]
 					# tmp = list(np.quantile(vs, q=[0, 0.5, 1]))
-					tmp = [np.mean(data), np.std(data), skew(data), kurtosis(data), np.min(data), np.max(data)]
+					tmp = [np.mean(vs), np.std(vs)]
 					# tmp = [np.mean(vs)]
 					n_feat = len(tmp)
 				elif flg2:
@@ -174,7 +162,7 @@ def pca_plot(dataset, activities, classes, title):
 	plt.show()
 
 
-def split_train_test(history, data_type=''):
+def split_train_test_act(history, data_type=''):
 	if data_type in ['_1.mp4', '_2.mkv', '_3.mp4']:
 		dataset, users, activities, raw_files = history[data_type]
 		# train_x, test_x, train_y, test_y = train_test_split(dataset, users, test_size=0.3, random_state=42)
@@ -204,60 +192,146 @@ def split_train_test(history, data_type=''):
 		                                                                                     raw_files1, test_size=0.3,
 		                                                                                     random_state=42)
 
-		train_ = []
-		activities_ = []
-		users_ = []
-		raw_files_ = []
-		y_ = []
-		for idx, f in enumerate(train_raw_files):
-			for i, f2 in enumerate(raw_files2):
-				if f.replace('_1.mp4.npy', '_2.mkv.npy') == f2:
-					train_.append(dataset2[i, :])
-					activities_.append(activities2[i])
-					users_.append(users2[i])
-					raw_files_.append(raw_files2[i])
-					y_.append(train_y[idx])
-					break
-			for j, f3 in enumerate(raw_files3):
-				if f.replace('_1.mp4.npy', '_3.mp4.npy') == f3:
-					train_.append(dataset3[j, :])
-					activities_.append(activities3[j])
-					users_.append(users3[j])
-					raw_files_.append(raw_files3[j])
-					y_.append(train_y[idx])
-					break
+		camera_type = 'all'
+		if camera_type == '_1.mp4':
+			pass
+		elif camera_type == '_2.mkv':
+			train_ = []
+			activities_ = []
+			users_ = []
+			raw_files_ = []
+			y_ = []
+			for idx, f in enumerate(train_raw_files):
+				for i, f2 in enumerate(raw_files2):
+					if f.replace('_1.mp4.npy', '_2.mkv.npy') == f2:
+						train_.append(dataset2[i, :])
+						activities_.append(activities2[i])
+						users_.append(users2[i])
+						raw_files_.append(raw_files2[i])
+						y_.append(train_y[idx])
+						break
+			train_x = np.asarray(train_)
+			train_y = np.asarray(y_)
+			train_raw_files.extend(raw_files_)
 
-		train_x = np.concatenate([train_x, np.asarray(train_)], axis=0)
-		train_y = np.concatenate([train_y, np.asarray(y_)], axis=0)
-		train_raw_files.extend(raw_files_)
+			test_ = []
+			activities_ = []
+			users_ = []
+			raw_files_ = []
+			y_ = []
+			for idx, f in enumerate(test_raw_files):
+				for i, f2 in enumerate(raw_files2):
+					if f.replace('_1.mp4.npy', '_2.mkv.npy') == f2:
+						test_.append(dataset2[i, :])
+						activities_.append(activities2[i])
+						users_.append(users2[i])
+						raw_files_.append(raw_files2[i])
+						y_.append(test_y[idx])
+						break
+			test_x = np.asarray(test_)
+			test_y = np.asarray(y_)
+			test_raw_files.extend(raw_files_)
+		elif camera_type == '_3.mp4':
+			train_ = []
+			activities_ = []
+			users_ = []
+			raw_files_ = []
+			y_ = []
+			for idx, f in enumerate(train_raw_files):
+				for j, f3 in enumerate(raw_files3):
+					if f.replace('_1.mp4.npy', '_3.mp4.npy') == f3:
+						train_.append(dataset3[j, :])
+						activities_.append(activities3[j])
+						users_.append(users3[j])
+						raw_files_.append(raw_files3[j])
+						y_.append(train_y[idx])
+						break
 
-		test_ = []
-		activities_ = []
-		users_ = []
-		raw_files_ = []
-		y_ = []
-		for idx, f in enumerate(test_raw_files):
-			for i, f2 in enumerate(raw_files2):
-				if f.replace('_1.mp4.npy', '_2.mkv.npy') == f2:
-					test_.append(dataset2[i, :])
-					activities_.append(activities2[i])
-					users_.append(users2[i])
-					raw_files_.append(raw_files2[i])
-					y_.append(test_y[idx])
-					break
+			train_x = np.asarray(train_)
+			train_y = np.asarray(y_)
+			train_raw_files.extend(raw_files_)
 
-			for j, f3 in enumerate(raw_files3):
-				if f.replace('_1.mp4.npy', '_3.mp4.npy') == f3:
-					test_.append(dataset3[j, :])
-					activities_.append(activities3[j])
-					users_.append(users3[j])
-					raw_files_.append(raw_files3[j])
-					y_.append(test_y[idx])
-					break
+			test_ = []
+			activities_ = []
+			users_ = []
+			raw_files_ = []
+			y_ = []
+			for idx, f in enumerate(test_raw_files):
+				for j, f3 in enumerate(raw_files3):
+					if f.replace('_1.mp4.npy', '_3.mp4.npy') == f3:
+						test_.append(dataset3[j, :])
+						activities_.append(activities3[j])
+						users_.append(users3[j])
+						raw_files_.append(raw_files3[j])
+						y_.append(test_y[idx])
+						break
 
-		test_x = np.concatenate([test_x, np.asarray(test_)], axis=0)
-		test_y = np.concatenate([test_y, np.asarray(y_)], axis=0)
-		test_raw_files.extend(raw_files_)
+			test_x = np.asarray(test_)
+			test_y = np.asarray(y_)
+			test_raw_files.extend(raw_files_)
+
+		else:
+			train_ = []
+			activities_ = []
+			users_ = []
+			raw_files_ = []
+			y_ = []
+			for idx, f in enumerate(train_raw_files):
+				for i, f2 in enumerate(raw_files2):
+					if f.replace('_1.mp4.npy', '_2.mkv.npy') == f2:
+						train_.append(dataset2[i, :])
+						activities_.append(activities2[i])
+						users_.append(users2[i])
+						raw_files_.append(raw_files2[i])
+						y_.append(train_y[idx])
+						break
+				for j, f3 in enumerate(raw_files3):
+					if f.replace('_1.mp4.npy', '_3.mp4.npy') == f3:
+						train_.append(dataset3[j, :])
+						activities_.append(activities3[j])
+						users_.append(users3[j])
+						raw_files_.append(raw_files3[j])
+						y_.append(train_y[idx])
+						break
+
+			train_x = np.concatenate([train_x, np.asarray(train_)], axis=0)
+			train_y = np.concatenate([train_y, np.asarray(y_)], axis=0)
+			train_raw_files.extend(raw_files_)
+
+			flg3 = '_3.mp4'
+			if flg3 == '_1.mp4':
+				pass
+			else:
+				test_ = []
+				activities_ = []
+				users_ = []
+				raw_files_ = []
+				y_ = []
+				for idx, f in enumerate(test_raw_files):
+					if flg3 == '_2.mkv':
+						for i, f2 in enumerate(raw_files2):
+							if f.replace('_1.mp4.npy', '_2.mkv.npy') == f2:
+								test_.append(dataset2[i, :])
+								activities_.append(activities2[i])
+								users_.append(users2[i])
+								raw_files_.append(raw_files2[i])
+								y_.append(test_y[idx])
+								break
+					elif flg3 == '_3.mp4':
+						for j, f3 in enumerate(raw_files3):
+							if f.replace('_1.mp4.npy', '_3.mp4.npy') == f3:
+								test_.append(dataset3[j, :])
+								activities_.append(activities3[j])
+								users_.append(users3[j])
+								raw_files_.append(raw_files3[j])
+								y_.append(test_y[idx])
+								break
+					else:
+						pass
+
+				test_x = np.asarray(test_)
+				test_y = np.asarray(y_)
+				test_raw_files = raw_files_
 
 	return train_x, train_y, test_x, test_y, train_raw_files, test_raw_files
 
@@ -270,19 +344,6 @@ def get_data(root_dir, cameras=[], classes=[]):
 		history[camera] = (dataset, users, activities, raw_files)
 
 	return history
-
-
-def merge_label(train_y):
-	res = []
-	for v in train_y:
-		if v == 0:
-			res.append(v)
-		elif v == 4:
-			res.append(2)
-		else:
-			res.append(1)
-
-	return np.asarray(res)
 
 
 def main():
@@ -298,7 +359,7 @@ def main():
 	idx2camera = {'_1.mp4': 'camera1', '_2.mkv': 'camera2', '_3.mp4': 'camera3', 'all': 'all', 'random': 'random'}
 	# history_file: the location where I save the fft_feature to
 	history_file = f'{ROOT}/out/fft_feature/datasets.dat'
-	# if os.path.exists(history_file): os.remove(history_file)
+	if os.path.exists(history_file): os.remove(history_file)
 	if not os.path.exists(history_file):
 		history = get_data(root_dir, cameras=['_1.mp4', '_2.mkv', '_3.mp4'], classes=classes)
 		check_path(history_file)
@@ -315,9 +376,7 @@ def main():
 	###############################################################################################################
 	# 2. combine all cameras' data
 	data_type = 'all'  # '_2.mkv', 'random', 'all'
-	train_x, train_y, test_x, test_y, train_raw_files, test_raw_files = split_train_test(history, data_type)
-	# train_y = merge_label(train_y)
-	# test_y = merge_label(test_y)
+	train_x, train_y, test_x, test_y, train_raw_files, test_raw_files = split_train_test_act(history, data_type)
 
 	###############################################################################################################
 	# 3. normalization
@@ -332,7 +391,7 @@ def main():
 	###############################################################################################################
 	# 4. Feature reduction
 	print(f'before: X_train: {train_x.shape}, y_train.shape: {train_y.shape}, X_test: {test_x.shape}')
-	reduction_method = 'sir'
+	reduction_method = 'pc1a'
 	if reduction_method == 'pca':
 		pca = PCA(n_components=0.95)  # min(len(np.unique(train_y)) - 1, train_x.shape[1]))
 		pca.fit(train_x)

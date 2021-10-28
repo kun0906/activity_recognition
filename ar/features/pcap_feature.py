@@ -1,3 +1,8 @@
+""" Install odet:
+    https://github.com/kun0906/odet
+
+"""
+
 import os
 import pickle
 

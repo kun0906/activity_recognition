@@ -137,11 +137,13 @@ args.evaluate = 'ar/features/videopose3d/checkpoint/pretrained_h36m_detectron_co
 args.render = True
 args.viz_action = 'custom'
 args.viz_camera = 0
-# args.viz_subject = 'take_out_item_2_1616179391_1.mp4'
-# # only use for rendering the final mp4. only the 2d keypoints are used to pred the 3d keypoints
-# args.viz_video = f'examples/data/data-clean/refrigerator/take_out_item/4/{args.viz_subject}'
-# args.viz_export = f'examples/out/strange/data/data-clean/refrigerator/take_out_item/4/{args.viz_subject}'  # 3d .npy
-# args.viz_output = f'examples/out/strange/data/data-clean/refrigerator/take_out_item/4/{args.viz_subject}'  # visualization
+# no_interaction is predicted as 'open_close_fridge'
+# examples/classical_ml/out/keypoints3d-20210907/keypoints3d/data/data-clean/refrigerator/no_interaction/4/no_interaction_4_1616182615_1.mp4.npy
+args.viz_subject = 'no_interaction_1_1625875733_1.mp4'
+# only use for rendering the final mp4. only the 2d keypoints are used to pred the 3d keypoints
+args.viz_video = f'examples/datasets/data-clean/refrigerator/no_interaction/2/{args.viz_subject}'
+args.viz_export = f'examples/strange/data/data-clean/refrigerator/open_close_fridge/4/{args.viz_subject}'  # 3d .npy
+args.viz_output = f'examples/strange/data/data-clean/refrigerator/open_close_fridge/4/{args.viz_subject}'  # visualization
 args.viz_size = 6
 print(args)
 tmp_dir = os.path.dirname(args.viz_export)
@@ -894,6 +896,7 @@ if args.render:
 	                         pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
 	                         kps_left=kps_left, kps_right=kps_right, joints_left=joints_left, joints_right=joints_right)
 	prediction = evaluate(gen, return_predictions=True)
+	prediction[:, 16, :] = 0  # set the right wrist = 0 (red color) # for debug
 	if model_traj is not None and ground_truth is None:
 		prediction_traj = evaluate(gen, return_predictions=True, use_trajectory_model=True)
 		prediction += prediction_traj
@@ -902,8 +905,8 @@ if args.render:
 		print('Exporting joint positions to', os.path.abspath(args.viz_export + '.npy'))
 		# Predictions are in camera space
 		np.save(args.viz_export, prediction)
-		# if you also want to generated mp4. just comment exit(0)
-		# exit(0)
+	# if you also want to generated mp4. just comment exit(0)
+	# exit(0)
 
 	if args.viz_output is not None:
 		print(args.viz_output)
