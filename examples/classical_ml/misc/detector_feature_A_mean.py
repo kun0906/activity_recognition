@@ -13,7 +13,7 @@ from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-from features import feature
+from ar.features import feature
 
 #
 # def _generate(n=100):
@@ -57,7 +57,7 @@ from features import feature
 #
 #     y = ''
 #     return X, y
-from features.feature import extract_feature_average, generate_data
+from ar.features.feature import extract_feature_average, generate_data
 
 
 class AnomalyDetector:
@@ -198,7 +198,7 @@ def get_X_y(Xs, ys):
 
 
 def main(random_state=42):
-    in_dir = 'out/data/data-clean/refrigerator'
+    in_dir = '../out/data/data-clean/refrigerator'
     # in_dir = 'out/data/trimmed/data-clean/refrigerator'
     in_file = f'{in_dir}/Xy-mkv.dat'
     in_file, video_type = f'{in_dir}/Xy-mp4.dat', 'mp4'

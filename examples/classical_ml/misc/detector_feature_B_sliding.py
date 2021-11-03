@@ -11,9 +11,8 @@ from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-from features import feature
-from features.feature import extract_feature_sliding_window, extract_feature_average, generate_data, \
-    extract_feature_sampling
+from ar.features import feature
+from ar.features.feature import extract_feature_sliding_window, extract_feature_average, generate_data
 
 
 class AnomalyDetector:
@@ -105,17 +104,12 @@ class AnomalyDetector:
 #     return meta
 
 
-def get_X_y(Xs, ys, augment=True, augment_type='sampling'):
+def get_X_y(Xs, ys, augment=True):
     X = []
     Y = []
     for f, y in zip(Xs, ys):
         if augment:
-            if augment_type == 'sliding_window':
-                xs = extract_feature_sliding_window(f)
-            elif augment_type == 'sampling':
-                xs = extract_feature_sampling(f)
-            else:
-                continue
+            xs = extract_feature_sliding_window(f)
         else:
             xs = extract_feature_average(f)
         X.extend(xs)
@@ -157,7 +151,7 @@ def get_X_y(Xs, ys, augment=True, augment_type='sampling'):
 
 
 def main(random_state=42):
-    in_dir = 'out/data/data-clean/refrigerator'
+    in_dir = '../out/data/data-clean/refrigerator'
     # in_dir = 'out/data/trimmed/data-clean/refrigerator'
     in_file, video_type = f'{in_dir}/Xy-mp4.dat', 'mp4'
     # in_file = f'{in_dir}/Xy-comb.dat'
@@ -184,7 +178,7 @@ def main(random_state=42):
     # augment train set by sliding window
     # video_id_train, X_train, y_train, meta_train = augment_data(X_train, y_train, mp, augment=True)
     # video_id_test, X_test, y_test, meta_test = augment_data(X_test, y_test, mp, augment= False)
-    video_id_train, X_train, y_train = get_X_y(X_train, y_train, augment=True, augment_type='sampling')
+    video_id_train, X_train, y_train = get_X_y(X_train, y_train, augment=True)
     video_id_test, X_test, y_test = get_X_y(X_test, y_test, augment=False)
     print(f'X_train: {X_train.shape}, y_train: {sorted(Counter(y_train).items(), key=lambda x: x[0])}')
     print(f'X_train: {X_test.shape}, y_test: {sorted(Counter(y_test).items(), key=lambda x: x[0])}')
@@ -207,7 +201,7 @@ def main(random_state=42):
         #                            random_state=random_state)
         # detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel':'rbf'}, random_state=random_state)
         detector = AnomalyDetector(model_name='SVM', model_parameters={'kernel': 'linear'}, random_state=random_state)
-        # detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C': 1}, random_state=random_state)
+        # detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C':1}, random_state=random_state)
 
         detector.fit(X_train, y_train)
         #

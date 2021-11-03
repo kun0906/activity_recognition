@@ -13,18 +13,14 @@ from scipy.stats import skew, kurtosis
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler, RobustScaler
-from sklearn.svm import SVC
+from sklearn.preprocessing import RobustScaler
 from sliced import SlicedInverseRegression
 
 from ar.features.feature import _get_fft
-from ar.utils.utils import make_confusion_matrix, load, dump, check_path, timer
-from examples.classical_ml.fft_feature_inverse_regression_users import pca_plot2
+from ar.utils.utils import load, dump, check_path, timer
+from examples.classical_ml.misc.fft_feature_inverse_regression_users import pca_plot2
 
 keypoints = [
 	"nose",

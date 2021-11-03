@@ -1,35 +1,44 @@
 """
 
 run the below command under 'activity_recognition' folder:
-    PYTHONPATH=../:./ python3 models/classical/detector_feature_A_mirror-2.py
+    PYTHONPATH=../:./ python3 models/classical/detector_feature_mean_concatenate.py >log.txt 2>&1 &
 
+    Note:
+        >& is the syntax to redirect a stream to another file descriptor - 0 is stdin, 1 is stdout, and 2 is stderr.
+        https://stackoverflow.com/questions/876239/how-to-redirect-and-append-both-stdout-and-stderr-to-a-file-with-bash
 
 
 """
 
 import os
 import shutil
+import time
 from collections import Counter
+from datetime import datetime
+from logging import error
 from shutil import copyfile
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
-import sklearn
 import pandas as pd
+import seaborn as sns
+import sklearn
+from matplotlib.colors import ListedColormap
+from mpl_toolkits.mplot3d import Axes3D
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.manifold import TSNE
 from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-from features import feature
-from features.feature import extract_feature_average, generate_data, extract_video_feature, \
-    extract_feature_sliding_window, extract_feature_sampling, load_data, dump_data
-from features.video.model_tf import CNN_tf
-from features.video.utils import load_video
-from features.video.video import trim
+from ar.features.feature import extract_feature_average, extract_feature_sampling, load_data, dump_data
+from ar.features.video.model_tf import CNN_tf
+from ar.features.video.utils import load_video
+from ar.features.video.video import trim
 
 
 def _extract_video_feature(model, in_file, out_dir):
@@ -65,7 +74,7 @@ def _mirror_video(in_file, out_dir):
 
     Returns
     -------
-     # in_file = 'data/data-clean/refrigerator/open_close_fridge/1/open_close_fridge_3_1615392727_2.mkv'
+     in_file = 'out/data/data-clean/refrigerator/open_close_fridge/1/trim-open_close_fridge_10_1615393352_2.mkv'
     """
     _, file_name = os.path.split(in_file)
     # if not os.path.exists(out_dir):
@@ -77,37 +86,44 @@ def _mirror_video(in_file, out_dir):
         return out_file
 
     # capture video
-    cap = cv2.VideoCapture(in_file)
-    # Get the Default resolutions
-    fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-    # fourcc = cv2.VideoWriter_fourcc(
-    #     *f"{fourcc & 255:c},{(fourcc >> 8) & 255:c}, {(fourcc >> 16) & 255:c}, {(fourcc >> 24) & 255:c}")
-    fourcc = cv2.VideoWriter_fourcc(*(chr(fourcc & 0xff) + chr((fourcc >> 8) & 0xff) + chr((fourcc >> 16) & 0xff)
-                                      + chr((fourcc >> 24) & 0xff)))
-    # print(fourcc)
-    frame_width = int(cap.get(3))
-    frame_height = int(cap.get(4))
-    # Define the codec and filename.
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    # out = cv2.VideoWriter(out_file, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), fps, (frame_width, frame_height))
     try:
+        # in_file = 'out/data/data-clean/refrigerator/open_close_fridge/1/trim-open_close_fridge_10_1615393352_2.mkv'
+        if not os.path.exists(in_file):
+            error(f'not exist error: {in_file}')
+        cap = cv2.VideoCapture(in_file)
+        # Get the Default resolutions
+        # fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
+        # fourcc = cv2.VideoWriter_fourcc(*'XVID'.lower())
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v'.lower())
+        # fourcc = cv2.VideoWriter_fourcc(
+        #     *f"{fourcc & 255:c},{(fourcc >> 8) & 255:c}, {(fourcc >> 16) & 255:c}, {(fourcc >> 24) & 255:c}")
+        fourcc = cv2.VideoWriter_fourcc(*(chr(fourcc & 0xff) + chr((fourcc >> 8) & 0xff) + chr((fourcc >> 16) & 0xff)
+                                          + chr((fourcc >> 24) & 0xff)))
+        # print(fourcc)
+        frame_width = int(cap.get(3))
+        frame_height = int(cap.get(4))
+        # Define the codec and filename.
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        # out = cv2.VideoWriter(out_file, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), fps, (frame_width, frame_height))
         out = cv2.VideoWriter(out_file, fourcc, fps, (frame_width, frame_height), isColor=True)
-    except Exception as e:
-        print(e)
-    while True:
-        ret, img = cap.read()
-        # print(ret)
-        if ret:
-            # cv2.imshow('Original Video',img)
-            # flip for truning(fliping) frames of video
-            img2 = cv2.flip(img, 1)  # Horizontal
-            # cv2.imshow('Flipped video',img2)
-            out.write(img2)
-        else:
-            break
-    cap.release()
-    out.release()
-    cv2.destroyAllWindows()
+
+        while True:
+            ret, img = cap.read()
+            # print(ret)
+            if ret:
+                # cv2.imshow('Original Video',img)
+                # flip for truning(fliping) frames of video
+                img2 = cv2.flip(img, 1)  # Horizontal
+                # cv2.imshow('Flipped video',img2)
+                out.write(img2)
+            else:
+                break
+
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
+    except cv2.error as e:
+        error(f'Error: {e} on {in_file}')
     print(f'_mirror_video: {out_file}')
     return out_file
 
@@ -294,7 +310,7 @@ def augment_test(test_meta, augment_type='camera_1+camera_2+camera_3', is_mirror
     return X_meta, np.asarray(X), np.asarray(Y)
 
 
-def tsne_plot(X, y, y_label, random_state=42):
+def tsne_plot(X, y, y_label, random_state=42, title=None, out_dir='.'):
     """
 
     X = np.array([[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 1]])
@@ -310,13 +326,6 @@ def tsne_plot(X, y, y_label, random_state=42):
     -------
 
     """
-    import numpy as np
-    from sklearn.manifold import TSNE
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import pandas as pd
-    from mpl_toolkits.mplot3d import Axes3D
-    from matplotlib.colors import ListedColormap
 
     X_embedded = TSNE(n_components=2, random_state=random_state).fit_transform(X)
     # df = pd.DataFrame(np.concatenate([X_embedded, np.reshape(y, (-1, 1))], axis=1), columns=['x1', 'x2', 'y'])
@@ -376,7 +385,8 @@ def tsne_plot(X, y, y_label, random_state=42):
     # plt.legend(*sc.legend_elements())
     #  plt.tight_layout(pad = 2.0, rect=(0.3, 0.3, 0.8, 0.8))   # not works with axes. savefig works.
     # save
-    plt.savefig("refirgerator", bbox_inches='tight')
+    out_file = os.path.join(out_dir, f'{title}')
+    plt.savefig(out_file, bbox_inches='tight', dpi=300)
     plt.show()
 
 
@@ -498,21 +508,145 @@ def split_train_test_video(meta, video_type='_1.mp4', test_size=0.3, random_stat
     return train_meta, test_meta
 
 
-def get_activity_info(in_file, log):
+def get_activity_info(in_file, video_logs={}):
     start_time, end_time = 0, 0
+    try:
+        if in_file in video_logs.keys():
+            line = video_logs[in_file]
+        else:
+            # Due to different languages are used during collection, the timestamp generated to write the filename
+            # is different from the logs. To find the correct logs, we add -1 or +1 to the time_stamp in filename.
+            dir_tmp, f = os.path.split(in_file)
+            arr_tmp = f.split('_')
+            video_start_time = arr_tmp[-2]  # timestamp
+            for i in [-5, -2, -1, 1, 2, 5]:
+                tmp = str(int(video_start_time) + i)
+                arr_tmp[-2] = tmp
+                tmp = '_'.join(arr_tmp)
+                in_file_tmp = os.path.join(dir_tmp, tmp)
+                if in_file_tmp in video_logs.keys():
+                    line = video_logs[in_file_tmp]
+                    break
+
+        start_time = line[0]
+        end_time = line[1]
+        # f = line[2]
+    except Exception as e:
+        video_start_time = int(in_file.split('/')[-1].split('_')[-2])
+        video_start_time = datetime.utcfromtimestamp(video_start_time).strftime('%Y-%m-%d %H:%M:%S')
+        error(f'get_activity_info () Error: {e}. {in_file}, video_start_time: {video_start_time}')
+
+    if start_time < 0:
+        start_time = 0
 
     return start_time, end_time
 
 
-def parse_logs(in_dir='data/data-clean/log'):
-    # combine all files in the list
-    combined_csv = pd.concat([pd.read_csv(f) for f in os.listdir(in_dir).sort()])
-    # # export to csv
-    # combined_csv.to_csv("combined_csv.csv", index=False, encoding='utf-8-sig')
+# def time_diff(time_str, video_start_time):
+#     # if you encounter a "year is out of range" error the timestamp
+#     # may be in milliseconds, try `ts /= 1000` in that case
+#     # print(datetime.utcfromtimestamp(time_str).strftime('%Y-%m-%d %H:%M:%S'))
+#
+#     time_tmp = datetime.utcfromtimestamp(time_str).strftime('%Y-%m-%d %H:%M:%S')
+#     video_start_time = datetime.utcfromtimestamp(video_start_time).strftime('%Y-%m-%d %H:%M:%S')
+#     return time_tmp - video_start_time
 
-    video_logs = {}  # f: v
-    for line in combined_csv.values:
-        video_logs[line] = ''
+def parse_logs(in_dir='data/data-clean/log'):
+    root_dir = 'data/data-clean'
+    # combine all files in the list
+    df = pd.concat([pd.read_csv(os.path.join(in_dir, f)) for f in
+                    sorted(os.listdir(in_dir)) if f.startswith('log_')])
+    df.dropna(thresh=9, inplace=True)  # each row should at least have 9 values
+    n = len(df.values)
+    df['idx'] = np.asarray(list(range(0, n, 1)))
+    df.set_index('idx')
+    # change the order of columns
+    cols = df.columns.tolist()
+    cols = [cols[-1]] + cols[:-1]
+    df = df[cols]
+    # export to csv
+    df.to_csv(f"{root_dir}/~combined_csv.csv", index=True, encoding='utf-8-sig')
+
+    video_logs = {}  # only includes camera 1 data
+    data = df.values
+    camera_counts = {'camera1': 0, 'camera2': 0, 'camera3': 0}
+    for i in range(n):
+        # data[i][5]: activity
+        if data[i][5].strip() not in ['no_interaction', 'open_close_fridge', 'put_back_item',
+                                      'screen_interaction', 'take_out_item']:
+            continue
+        line = data[i]
+        idx, timestamp, start_str, device_name, ID, activity, repetition, camera1, camera2, pcap, audio = \
+            [v.strip() if type(v) == str else str(int(v)) for v in list(line)]
+
+        # Note: all three cameras have the same timestamp
+        key = f'{root_dir}/{device_name}/{activity}/{ID}/{camera1}'
+        key2 = f'{root_dir}/{device_name}/{activity}/{ID}/{camera2}'
+        camera3 = camera1.replace('_1.mp4', '_3.mp4')
+        key3 = f'{root_dir}/{device_name}/{activity}/{ID}/{camera3}'
+        # if camera2 == 'no_interaction_10_1614039254_2.mkv':  # for testing purpose.
+        #     print(i, line)
+        # Note: the following method requires the start record should appear before the end record
+        if start_str == 'start':
+            # get the statistical information of each video
+            if '1.mp4' in camera1:
+                camera_counts['camera1'] += 1
+            if '2.mkv' in camera2:
+                camera_counts['camera2'] += 1
+            if '3.mp4' in camera1 or '3.mp4' in camera2:
+                camera_counts['camera3'] += 1
+
+            # For each activity, the starting time add -5s and ending time add +5s to make sure
+            # the activity in [start_time, end_time].
+            video_start_time = int(camera1.split('_')[-2])
+            start_time = int(timestamp) - video_start_time - 5
+            video_logs[key] = [start_time, '', video_start_time, key, activity]
+            video_logs[key2] = [start_time, '', video_start_time, key2, activity]
+            video_logs[key3] = [start_time, '', video_start_time, key3, activity]
+        elif start_str == 'end':
+            if key in video_logs.keys():
+                end_time = int(timestamp) - video_logs[key][2] + 5  # here +5 avoid to loss activity information
+                video_logs[key][1] = end_time
+                video_logs[key2][1] = end_time
+                video_logs[key3][1] = end_time
+            else:
+                error(f'Error happens at line:{i}, {line}')
+    print(f'camera_counts without manually recording: {camera_counts.items()}')
+    # #########################################################################################
+    # # parse the description.xlsx (we manually label the starting and ending time for each video)
+    # xlsx_file = f'{root_dir}/refrigerator/description.xlsx'
+    # xls = pd.ExcelFile(xlsx_file)
+    # # to read all sheets to a map
+    # df_mp = {}
+    # del line
+    # for sheet_name in xls.sheet_names:
+    #     df_mp[sheet_name] = xls.parse(sheet_name)
+    #     for line in df_mp[sheet_name].values.tolist():
+    #         try:
+    #             # print(line)
+    #             if not line or str(line[0]) == 'nan' or line[0].startswith('full'): continue
+    #             if '-trim_' in line[0]:  continue
+    #
+    #             key = os.path.join(root_dir, line[0])
+    #             # print(line, video_path)
+    #             if key in video_logs.keys():
+    #                 warning(f'duplicate log: {key}')
+    #             else:
+    #                 start_time = int(line[1])
+    #                 end_time = int(line[2])
+    #                 camera_counts['camera1'] += 1
+    #                 camera_counts['camera2'] += 1
+    #                 video_start_time = int(key.split('_')[-2])
+    #                 activity = line[3]
+    #                 video_logs[key] = [start_time, end_time, video_start_time, key, activity]
+    #                 key2 = key.replace('1.mp4', '2.mkv')
+    #                 video_logs[key2] = [start_time, end_time, video_start_time, key2, activity]
+    #         except Exception as e:
+    #             warning(f"{line}, {e}")
+
+    print(f'camera_counts: {camera_counts.items()}')
+    print(f'Total number of videos (3 cameras): {len(video_logs)}, in which, '
+          f'{Counter([v[-1] for v in video_logs.values()])}')
     return video_logs
 
 
@@ -557,19 +691,22 @@ def cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False):
             if not is_test:
                 if feature_type == 'mean':
                     x = extract_feature_average(f)
-                    # x = extract_feature_sampling(f)
                 elif feature_type == 'sampling':
                     x = extract_feature_sampling(f)
             elif is_test:
                 if feature_type == 'mean':
                     x = extract_feature_average(f)
+                elif feature_type == 'sampling':
+                    x = extract_feature_sampling(f, steps=[1])
+                    # x = extract_feature_sampling(f, steps=[1, 2, 3, 4, 5])
             train_meta[name][i] = (vs[0], vs[1], vs[2], vs[3], x)  # (video_path, feature, y_label, y_idx, X)
 
     return train_meta
 
 
-def gen_Xy(in_dir, out_dir, is_subclip=False, is_mirror=True, is_cnn_feature=True, device_type='refrigerator'):
-    """Mirror videos and extract features by CNN
+def gen_Xy(in_dir, out_dir, is_subclip=True, is_mirror=True, is_cnn_feature=True, device_type='refrigerator'):
+    """ preprocessing the videos:
+            e.g., trim and mirror videos,  extract features by CNN
 
     Parameters
     ----------
@@ -589,6 +726,8 @@ def gen_Xy(in_dir, out_dir, is_subclip=False, is_mirror=True, is_cnn_feature=Tru
         model = CNN_tf('vgg', model_file)
     else:
         model = None
+
+    video_logs = parse_logs(in_dir='data/data-clean/log')
 
     data = []  # [(video_path, cnn_feature, y)]
 
@@ -615,19 +754,25 @@ def gen_Xy(in_dir, out_dir, is_subclip=False, is_mirror=True, is_cnn_feature=Tru
                 # print(participant_dir)
                 # list videos (e.g., 'no_interaction_1_1614038765_1.mp4')
                 for f in sorted(os.listdir(participant_dir)):
+                    if f.startswith('.'): continue
                     if ('mp4' not in f) and ('mkv' not in f): continue  # only process video file.
                     x = os.path.join(participant_dir, f)
                     if '_3.mp4' in f: cnt_3 += 1
-                    if '_3 2.mp4' in f: cnt_32 += 1
+                    if '_3 2.mp4' in f:  # ignore _3 2.mp4 data.
+                        cnt_32 += 1
+                        continue
                     print(f'i: {i}, {x}')
                     try:
                         out_dir_tmp = os.path.join(out_dir, out_dir_activity, out_dir_participant)
-
+                        if is_subclip:
+                            start_time, end_time = get_activity_info(x, video_logs)
+                            if end_time == 0: continue
+                            x = trim(x, start_time=start_time, end_time=end_time, out_dir=out_dir_tmp)
                         if is_cnn_feature:
                             x_feat = _extract_video_feature(model, x, out_dir=out_dir_tmp)
                         else:
                             x_feat = ''
-                        data.append((os.path.join(out_dir_tmp, f), x_feat, activity_label))
+                        data.append((x, x_feat, activity_label))
                         if is_mirror:
                             mirrored_x = _mirror_video(x, out_dir=out_dir_tmp)
                             if is_cnn_feature:
@@ -635,13 +780,142 @@ def gen_Xy(in_dir, out_dir, is_subclip=False, is_mirror=True, is_cnn_feature=Tru
                             else:
                                 mirrored_x_feat = ''
                             data.append((mirrored_x, mirrored_x_feat, activity_label))
+                        # if '_3.mp4' in x or '_3 2.mp4' in x_feat:
+                        #     print(f'---{i}, {x}')
                     except Exception as e:
                         msg = f'error: {e} on {x}'
                         raise ValueError(msg)
                     i += 1
-    print(f'camera_3: {cnt_3}, camera_32 (backup): {cnt_32}')
+    # print(f'camera_3: {cnt_3}, camera_32 (backup): {cnt_32}')
     meta = {'data': data, 'is_mirror': is_mirror, 'is_cnn_feature': is_cnn_feature}
     return meta
+
+
+def get_dim(X, q=0.9):
+    X = [len(v) for v in X]
+    qs = [0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1]
+    dims = [f"{int(_v)}({int(_v) // 4096} frames, q={_q})" for _v, _q in zip(np.ceil(np.quantile(X, q=qs)), qs)]
+    print(f'dims: {dims} when q={qs}.')
+    dim = int(np.ceil(np.quantile(X, q=q)))
+    print(f'dim: {dim} when q={q}. It is around {dim // 4096} frames for each video')
+    return dim
+
+
+def fix_dim(X, dim=10):
+    new_X = []
+    for v in X:
+        m = len(v)
+        if m < dim:
+            v = np.asarray(list(v) + [0] * (dim - m))
+        elif m > dim:
+            v = v[:dim]
+        else:
+            pass
+        new_X.append(v)
+    return np.asarray(new_X)
+
+
+def make_confusion_matrix(cf,
+                          group_names=None,
+                          categories='auto',
+                          count=True,
+                          percent=True,
+                          cbar=True,
+                          xyticks=True,
+                          xyplotlabels=True,
+                          sum_stats=True,
+                          figsize=None,
+                          cmap='Blues',
+                          title=None,
+                          out_dir='.'):
+    '''
+    This function will make a pretty plot of an sklearn Confusion Matrix cm using a Seaborn heatmap visualization.
+    Arguments
+    ---------
+    cf:            confusion matrix to be passed in
+    group_names:   List of strings that represent the labels row by row to be shown in each square.
+    categories:    List of strings containing the categories to be displayed on the x,y axis. Default is 'auto'
+    count:         If True, show the raw number in the confusion matrix. Default is True.
+    normalize:     If True, show the proportions for each category. Default is True.
+    cbar:          If True, show the color bar. The cbar values are based off the values in the confusion matrix.
+                   Default is True.
+    xyticks:       If True, show x and y ticks. Default is True.
+    xyplotlabels:  If True, show 'True Label' and 'Predicted Label' on the figure. Default is True.
+    sum_stats:     If True, display summary statistics below the figure. Default is True.
+    figsize:       Tuple representing the figure size. Default will be the matplotlib rcParams value.
+    cmap:          Colormap of the values displayed from matplotlib.pyplot.cm. Default is 'Blues'
+                   See http://matplotlib.org/examples/color/colormaps_reference.html
+
+    title:         Title for the heatmap. Default is None.
+    '''
+
+    # CODE TO GENERATE TEXT INSIDE EACH SQUARE
+    blanks = ['' for i in range(cf.size)]
+
+    if group_names and len(group_names) == cf.size:
+        group_labels = ["{}\n".format(value) for value in group_names]
+    else:
+        group_labels = blanks
+
+    if count:
+        group_counts = ["{0:0.0f}\n".format(value) for value in cf.flatten()]
+    else:
+        group_counts = blanks
+
+    if percent:
+        row_sum = np.sum(cf, axis=1)
+        cf_row_sum = np.array([[value] * len(row_sum) for value in row_sum]).flatten()
+        #         print(cf_row_sum)
+        group_percentages = ["({0:.2%})".format(value) for value in cf.flatten() / cf_row_sum]
+    else:
+        group_percentages = blanks
+
+    box_labels = [f"{v1}{v2}{v3}".strip() for v1, v2, v3 in zip(group_labels, group_counts, group_percentages)]
+    box_labels = np.asarray(box_labels).reshape(cf.shape[0], cf.shape[1])
+
+    # CODE TO GENERATE SUMMARY STATISTICS & TEXT FOR SUMMARY STATS
+    if sum_stats:
+        # Accuracy is sum of diagonal divided by total observations
+        accuracy = np.trace(cf) / float(np.sum(cf))
+
+        # if it is a binary confusion matrix, show some more stats
+        if len(cf) == 2:
+            # Metrics for Binary Confusion Matrices
+            precision = cf[1, 1] / sum(cf[:, 1])
+            recall = cf[1, 1] / sum(cf[1, :])
+            f1_score = 2 * precision * recall / (precision + recall)
+            stats_text = "\n\nAccuracy={:0.3f}\nPrecision={:0.3f}\nRecall={:0.3f}\nF1 Score={:0.3f}".format(
+                accuracy, precision, recall, f1_score)
+        else:
+            stats_text = "\n\nAccuracy={:0.2f}".format(accuracy)
+    else:
+        stats_text = ""
+    print(stats_text)
+    # SET FIGURE PARAMETERS ACCORDING TO OTHER ARGUMENTS
+    if figsize == None:
+        # Get default figure size if not set
+        figsize = plt.rcParams.get('figure.figsize')
+
+    if xyticks == False:
+        # Do not show categories if xyticks is False
+        categories = False
+
+    # MAKE THE HEATMAP VISUALIZATION
+    plt.figure(figsize=figsize)
+    sns.heatmap(cf / np.sum(cf, axis=1), annot=box_labels, fmt="", cmap=cmap, cbar=cbar, xticklabels=categories,
+                yticklabels=categories)
+
+    if xyplotlabels:
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label' + stats_text)
+    else:
+        plt.xlabel(stats_text)
+
+    if title:
+        plt.title(title)
+    out_file = os.path.join(out_dir, f'{title}-confusion_matrix')
+    plt.savefig(out_file, bbox_inches='tight', dpi=300)
+    plt.show()
 
 
 def main(random_state=42):
@@ -656,10 +930,11 @@ def main(random_state=42):
         ###############################################################################################################
         # Step 2. Get all cnn_features from videos
         Xy_cnn_features_file = f'{in_dir}/Xy_cnn_features.dat'
-        # if os.path.exists(Xy_cnn_features_file): os.remove(Xy_cnn_features_file)
+        if os.path.exists(Xy_cnn_features_file): os.remove(Xy_cnn_features_file)
         if not os.path.exists(Xy_cnn_features_file):
             in_raw_dir = 'data/data-clean/refrigerator'
-            # mirror the data and extract the features by CNN
+            # Here we preprocessing all the videos (such as, trim and mirror), but if uses all of them can be seen
+            # in the following part. Also, extract the features by CNN
             meta = gen_Xy([in_raw_dir], out_dir=in_dir, is_mirror=True, is_cnn_feature=True)
             dump_data(meta, out_file=Xy_cnn_features_file)
 
@@ -700,16 +975,23 @@ def main(random_state=42):
 
     ###############################################################################################################
     # Step 5. obtain final feature data (X_train and X_test) from CNN features with different methods
-    train_meta = cnn_feature2final_feature(train_meta, feature_type='mean', is_test=False)
-    test_meta = cnn_feature2final_feature(test_meta, feature_type='mean', is_test=True)
+    train_meta = cnn_feature2final_feature(train_meta, feature_type='sampling', is_test=False)
+    test_meta = cnn_feature2final_feature(test_meta, feature_type='sampling', is_test=True)
 
     ###############################################################################################################
     # Step 6. if augment data or not
     # X_train_meta, X_train, y_train = augment_train(train_meta, augment_type='camera_1',
     #                                                is_mirror=False)
     X_train_meta, X_train, y_train = augment_train(train_meta, augment_type='camera_1+camera_2+camera_3',
+                                                   # +camera_2+camera_3
                                                    is_mirror=False)
-    X_test_meta, X_test, y_test = augment_test(test_meta, augment_type='camera_1', is_mirror=False)
+    dim = get_dim(X_train, q=0.9)
+    X_train = fix_dim(X_train, dim)
+    # X_train = X_train[:100, :]    # for debugging
+    # y_train = y_train[:100]  # for debugging
+    X_test_meta, X_test, y_test = augment_test(test_meta, augment_type='camera_1+camera_2+camera_3',
+                                               is_mirror=False)
+    X_test = fix_dim(X_test, dim)
 
     print(f'X_train: {X_train.shape}\nX_test: {X_test.shape}')
     print(f'X_train: {X_train.shape}, y_train: {sorted(Counter(y_train).items(), key=lambda x: x[0])}')
@@ -725,12 +1007,14 @@ def main(random_state=42):
 
     is_plot = True
     if is_plot:
-        tsne_plot(X_train, y_train, [idx2label[i] for i in y_train])
-
+        start_time = time.time()
+        tsne_plot(X_train, y_train, [idx2label[i] for i in y_train], title='refrigerator', out_dir=in_dir)
+        end_time = time.time()
+        print(f'Plot takes {end_time - start_time:.0f} seconds.')
     res = []
-    # for n_estimators in [10, 50, 100, 200, 300, 400, 500, 700, 900, 1000]:
-    for model_name in ['OvRLogReg', 'SVM(linear)', 'RF']:
+    for model_name in ['OvRLogReg', 'SVM(linear)', 'RF']:  # ['OvRLogReg', 'SVM(linear)', 'RF']
         print(f'\n\n***{model_name}')
+        start_time = time.time()
         if model_name == 'OvRLogReg':
             detector = AnomalyDetector(model_name='OvRLogReg', model_parameters={'C': 1}, random_state=random_state)
         elif model_name == 'SVM(linear)':
@@ -773,6 +1057,8 @@ def main(random_state=42):
         for i, vs in enumerate(list(cm)):
             print(f'{idx2label[i][:w]:<{w}} ({i})\t', '\t\t'.join([f'{v}' for v in list(vs)]))
 
+        cm_file = make_confusion_matrix(cm, categories=sorted(label2idx.keys()), title=model_name, out_dir=in_dir)
+        print(f'confusion_matrix: {cm_file}')
         # 5 get misclassification
         err_mp = {}
         misclassified_dir = 'out/misclassified'
@@ -798,9 +1084,15 @@ def main(random_state=42):
         #     label_ = idx2label[label_]
         for k, vs in sorted(err_mp.items()):
             print('\t' + '\n\t'.join([f'{k}->{vs}']))
+
+        end_time = time.time()
+        print(f'{model_name} takes {end_time - start_time:.0f} seconds.')
     print('\n\n', res)
     print(sorted(res, key=lambda x: x[0], reverse=True))
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     main()
+    end_time = time.time()
+    print(f'Total time is {end_time - start_time:.0f} seconds!')

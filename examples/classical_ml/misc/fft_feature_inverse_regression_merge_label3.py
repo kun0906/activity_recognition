@@ -3,11 +3,9 @@
 """
 import copy
 import glob
-import heapq
 import os
 import shutil
 from collections import defaultdict, Counter
-from io import StringIO
 from shutil import copyfile
 
 import matplotlib.pyplot as plt
@@ -15,21 +13,15 @@ import numpy as np
 from scipy.stats import skew, kurtosis
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn.preprocessing import StandardScaler
 from sliced import SlicedInverseRegression
 
 from ar.features.feature import _get_fft
 from ar.utils.utils import make_confusion_matrix, load, dump, check_path, timer
-from examples.classical_ml.fft_feature_inverse_regression_users import pca_plot2
+from examples.classical_ml.misc.fft_feature_inverse_regression_users import pca_plot2
 
 # 2d keypoints output format
 # https://github.com/facebookresearch/VideoPose3D/issues/57
@@ -240,13 +232,13 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 		for i in range(11, 17):
 			# 	# res += stats(raw_data[:, i, x:y], dim=1) #+ stats(raw_data[1:, i, x:y]-raw_data[:-1, i, x:y])
 			res += stats(raw_data[:, i, x:y])
-			for s in range(1, 50, 5):
-				# res+= stats(raw_data[::s, i, x:y])
-				res += stats(raw_data[s:, i, x:y] - raw_data[:-s, i, x:y])
-		# for j in range(i+1, 17):
-		# 	# res += stats(raw_data[:, j, x:y]-raw_data[0:1, j, x:y])
-		# 	if i == j: continue
-		# 	res += stats((raw_data[:, i, x:y]-raw_data[:, j, x:y])**1)
+			# for s in range(1, 50, 5):
+			# 	# res+= stats(raw_data[::s, i, x:y])
+			# 	res += stats(raw_data[s:, i, x:y] - raw_data[:-s, i, x:y])
+			for j in range(i + 1, 17):
+				# res += stats(raw_data[:, j, x:y]-raw_data[0:1, j, x:y])
+				if i == j: continue
+				res += stats((raw_data[:, i, x:y] - raw_data[:, j, x:y]) ** 1)
 		# # # 	# res += stats(raw_data[:, j, x:y] - raw_data[:, i, x:y])
 
 		# res = stats(right_wrist) +stats(left_wrist) + stats(d) + stats(d2) + stats(d3) #+ stats(d11)  + stats(d22) + stats(d33) + stats(d111)  + stats(d222) + stats(d333)
@@ -753,14 +745,15 @@ def _main(m=10, random_state=10):
 		train_acc = accuracy_score(train_y, rf.predict(train_x))
 		acc = accuracy_score(test_y, pred_y)
 		print(acc, train_acc)
-		# missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name = 'RF', idx2label=idx2label)
-		# print(missclassified)
+		missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name='RF', idx2label=idx2label)
+		print(missclassified)
 		tmp = list(zip(rf.feature_importances_, features_names))
 		# print(sorted(tmp, key = lambda x: x[0], reverse=True))
 		# print(rf.feature_importances_, features_names)
 		# feat_importance = rf.compute_feature_importances(normalize=False)
 		# print("feat importance = " + str(feat_importance))
 		all_results['rf'] = (acc, train_acc, test_x.shape[1])
+		return
 
 		# dim = train_x.shape[1]
 		# mlp = MLPClassifier(solver='adam', alpha=1e-3, learning_rate='adaptive', verbose=True, max_iter = 100,
@@ -971,12 +964,13 @@ def main(random_state=10):
 # #
 
 if __name__ == '__main__':
-	for random_state in [42]:
-		# for random_state in [10, 42, 100, 500, 1000]:
-		main(random_state)
 
-# RF
-# res = [0.64,0.63, 0.63, 0.66, 0.63]
-# res = [0.70, 0.70, 0.71,0.75, 0.71]
-# b = np.asarray(res)
-# print(f'{res} = {np.mean(b)} +/- {np.std(b):.3f}')
+	res = {}
+	# for random_state in [10, 42, 100, 500, 1000]:
+	for random_state in [42]:
+		tmp = _main(m=84, random_state=random_state)
+		res[random_state] = tmp
+
+	for model_name in []:
+		model_res = [vs['acc'] for rs, vs in res.items()]
+		print(f'{res} = {np.mean(model_res)} +/- {np.std(model_res):.3f}')
