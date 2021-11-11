@@ -51,14 +51,14 @@ class CNN_tf():
 
         # intermediate convolutional layers to extract features
         if name == 'inception':
-            from features.video.nets import inception_v4
+            from ar.features.cnn.nets import inception_v4
             self.desired_size = inception_v4.inception_v4.default_image_size
             arg_scope = inception_v4.inception_v4_arg_scope()
             network = inception_v4.inception_v4
             preprocess = self.inc_preprocess
             self.layers = ['Mixed_3a', 'Mixed_4a', 'Mixed_5e', 'Mixed_6h', 'Mixed_7b']
         elif name == 'resnet':
-            from features.video.nets import resnet_v1
+            from ar.features.cnn.nets import resnet_v1
             self.desired_size = resnet_v1.resnet_v1.default_image_size
             arg_scope = resnet_v1.resnet_arg_scope()
             network = resnet_v1.resnet_v1_152
@@ -66,7 +66,7 @@ class CNN_tf():
             self.layers = ['resnet_v1_152/block1', 'resnet_v1_152/block2',
                            'resnet_v1_152/block3', 'resnet_v1_152/block4']
         elif name == 'vgg':
-            from features.video.nets import vgg
+            from ar.features.cnn.nets import vgg
             self.desired_size = vgg.vgg_16.default_image_size
             arg_scope = vgg.vgg_arg_scope()
             network = vgg.vgg_16

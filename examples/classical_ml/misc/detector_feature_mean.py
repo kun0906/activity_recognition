@@ -26,20 +26,20 @@ from sklearn.tree import DecisionTreeClassifier
 
 from ar.features import feature
 from ar.features.feature import extract_feature_average, generate_data, extract_video_feature, \
-    extract_feature_sliding_window, extract_feature_sampling, load_data, dump_data
-from ar.features.video.model_tf import CNN_tf
-from ar.features.video.utils import load_video
-from ar.features.video.video import trim
+	extract_feature_sliding_window, extract_feature_sampling, load_data, dump_data
+from ar.features.cnn.model_tf import CNN_tf
+from ar.features.cnn.utils import load_video
+from ar.features.cnn.video import trim
 
 
 def _extract_video_feature(model, in_file, out_dir):
-    # in_file = 'data/data-clean/refrigerator/open_close_fridge/1/open_close_fridge_3_1615392727_2.mkv'
-    video_name = os.path.splitext(os.path.basename(in_file))[0]
-    out_file = os.path.join(out_dir, '{}_{}.npy'.format(video_name, model.net_name))
-    if os.path.exists(out_file):
-        return out_file
+	# in_file = 'data/data-clean/refrigerator/open_close_fridge/1/open_close_fridge_3_1615392727_2.mkv'
+	video_name = os.path.splitext(os.path.basename(in_file))[0]
+	out_file = os.path.join(out_dir, '{}_{}.npy'.format(video_name, model.net_name))
+	if os.path.exists(out_file):
+		return out_file
 
-    if not os.path.exists(out_dir):
+	if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     batch_sz = 32

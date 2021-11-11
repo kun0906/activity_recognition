@@ -8,7 +8,7 @@ import numpy as np
 
 
 def main():
-	in_file = 'examples/out/data_2d_custom_2d_keypoints-with-probs.npz'
+	in_file = 'examples/out-/data_2d_custom_2d_keypoints-with-probs.npz'
 	raw_data = np.load(in_file, allow_pickle=True)
 	print(list(raw_data))
 	# print(raw_data['keypoints2d'])
@@ -39,7 +39,7 @@ def main():
 
 
 def single_main(file_lst):
-	in_file = 'examples/out/data_2d_custom_2d_keypoints-with-probs.npz'
+	in_file = 'examples/out-/data_2d_custom_2d_keypoints-with-probs.npz'
 	raw_data = np.load(in_file, allow_pickle=True)
 	print(list(raw_data))
 	# print(raw_data['keypoints2d'])

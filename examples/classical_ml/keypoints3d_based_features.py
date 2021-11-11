@@ -1,4 +1,10 @@
 """
+run the below command under 'activity_recognition' folder (root/project folder):
+	1 get the 3d keypoints: (modify the path (in some scripts) accordingly)
+		PYTHONPATH=. python3 ar/features/keypoints3d_based_features.py
+
+	2. get the results:
+        PYTHONPATH=. python3 examples/classical_ml/videopose3d_feature.py
 
 """
 import copy
@@ -13,13 +19,14 @@ import numpy as np
 from scipy.stats import skew, kurtosis
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
 from sliced import SlicedInverseRegression
 
 from ar.features.feature import _get_fft
@@ -93,7 +100,69 @@ features_names = []
 for i, k in enumerate(keypoints):
 	for x in ['x', 'y', 'z']:
 		features_names += [f'{i}_{k}_{x}_{v}' for v in ['mean', 'std', 'skew', 'kurtosis', 'min', 'max']]
+
+
 # [np.mean(data), np.std(data), skew(data), kurtosis(data), np.min(data), np.max(data)]
+
+
+def get_keypoints2d_output():
+	in_file = 'examples/classical_ml/out/data_2d_custom_keypoints2d_agg-with-probs.npz'
+	raw_data = np.load(in_file, allow_pickle=True)
+	keypoints2d = raw_data['keypoints2d'].tolist()
+	return keypoints2d
+
+
+def get_confidence_score(f, keypoints2d):
+	"""
+
+	Parameters
+	----------
+	f:
+	keypoints2d: the output of detrectron2
+	keypoint_idx: which keypoints' prob you want to obtain from keypoints2d
+
+	Returns
+	-------
+
+	"""
+	for k, vs in keypoints2d.items():
+		if k in f:
+			vs = vs[0]  # dict
+			# vs = {start_frame: 0 , end_frame: 100, bounding_boxes: [], bounding_boxes_probs: [],
+			# keypoints: [2d] , keypoints_probs:[]}
+			bp = vs['bounding_boxes_probs']
+			kp = vs['keypoints_probs']
+			# bb.extend(vs['bounding_boxes_probs'].tolist())
+
+			# vs['bounding_boxes_probs'][:, keypoint_idx].shape = (n_frames, n_columns)
+			# without mask
+			# Fix missing bboxes/keypoints by linear interpolation
+			mask = ~np.isnan(bp[:, ])
+			bp = bp[mask]
+			kp = kp[mask]
+			line = [k, bp, kp]
+			# print(line)
+			return line
+
+	return [f, [0], [[0]]]
+
+
+def get_quantile_score(res, keypoint_idx, qs=[0.1, 0.9]):
+	res = sorted(res.items(), key=lambda x: x[0], reverse=False)
+	for vs in res:
+		label, lst = vs
+		fs = []
+		ss = []
+		for vs in lst:
+			fs.append(vs[0])
+			kp = vs[3][:, keypoint_idx].tolist()  # keypoint_idx
+			kp = np.quantile(kp, q=qs)
+			ss.append(np.asarray(kp))
+		print(f'label: {label}, num: {len(lst)}')
+		# s = [float(f'{v:.3f}') for v in np.mean(ss, axis=0)]
+		s = [float(f'{v:.3f}') for v in np.mean(ss, axis=0)]
+		s = s + [float(f'{s[-2] - s[1]:.3f}')]  # 90%-10%
+		print(f'confidence_probs: {s}')
 
 
 def get_missclassified(cm, test_y, pred_y, test_raw_files, model_name, idx2label):
@@ -101,7 +170,9 @@ def get_missclassified(cm, test_y, pred_y, test_raw_files, model_name, idx2label
 		shutil.rmtree(f'examples/classical_ml/out/misclassified/{model_name}')
 	except Exception as e:
 		print(e)
-	res = defaultdict(list)
+	misclassified_res = defaultdict(list)
+	correct_res = defaultdict(list)
+	confid_scores = get_keypoints2d_output()
 	# n, m = cm.shape
 	for i, (y_, y_2) in enumerate(zip(test_y, pred_y)):
 		if y_ != y_2:
@@ -116,13 +187,23 @@ def get_missclassified(cm, test_y, pred_y, test_raw_files, model_name, idx2label
 				copyfile(os.path.join('ar/features/videopose3d/out3d_pred', in_file)[:-4], out_file)
 			except Exception as e:
 				print(f'Error: {e}')
-			res[y_].append(test_raw_files[i])
+			s = get_confidence_score(in_file, confid_scores)
+			misclassified_res[y_].append([test_raw_files[i]] + s)
+		else:
+			in_file = os.path.relpath(test_raw_files[i], 'examples/classical_ml/out/keypoints3d-20210907/keypoints3d/')
+			s = get_confidence_score(in_file, confid_scores)
+			correct_res[y_].append([test_raw_files[i]] + s)
 
-	res = sorted(res.items(), key=lambda x: x[0], reverse=False)
-	for vs in res:
-		label, lst = vs
-		print(f'label: {label}, misclassified_num: {len(lst)}, {lst}')
-	return
+	# keypoint_idx = 9   # right wrist: 10, left_wrist: 9 (here use the 2dkeypoints output idx)
+	print('print confidence score: ')
+	for ki in range(0, 17, 1):
+		# for ki in [9, 10]:
+		print(f'keypoint_idx: {ki}')
+		get_quantile_score(misclassified_res, keypoint_idx=ki)
+		get_quantile_score(correct_res, keypoint_idx=ki)
+		print()
+
+	return res
 
 
 def _get_fft2(vs, fft_type='magnitude'):
@@ -162,9 +243,12 @@ def trim(X):
 def stats(d, dim=3):
 	tmp = []
 	for i in range(dim):
-		tmp += [np.mean(d[:, i]), np.std(d[:, i]), np.min(d[:, i]), np.max(d[:, i]), np.max(d[:, i]) - np.min(d[:, i]),
-		        skew(d[:, i]), kurtosis(d[:, i]), np.sum(d[:, i])] + list(
-			np.quantile(d[:, i], q=[v * 0.01 for v in range(0, 100, 10)]))
+		tmp += [np.mean(d[:, i]), np.std(d[:, i]), np.min(d[:, i]), np.max(d[:, i]),
+		        skew(d[:, i]), kurtosis(d[:, i])]
+	# tmp += [np.max(d[:, i])-np.min(d[:, i])]
+	# tmp += [np.mean(d[:, i]), np.std(d[:, i]), np.min(d[:, i]), np.max(d[:, i]), np.max(d[:, i]) - np.min(d[:, i]),
+	#         skew(d[:, i]), kurtosis(d[:, i]), np.sum(d[:, i])] + list(
+	# 	np.quantile(d[:, i], q=[v * 0.01 for v in range(0, 100, 10)]))
 	# tmp += list(np.quantile(d[:, i], q=[ v *0.01 for v in range(0, 100, 10)]))
 	# tmp +=[np.mean(d[:, i]), np.std(d[:, i]), np.min(d[:, i]), np.max(d[:, i]), skew(d[:,i]), kurtosis(d[:, i])]
 	# tmp += d[:70, i].tolist()
@@ -179,7 +263,7 @@ def stats1(d):
 	return tmp
 
 
-def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
+def get_fft_features(raw_data='', m=48, keypoint=7, file=''):
 	""" Get features (fft or stats)
 
 	Parameters
@@ -209,24 +293,24 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 		left_wrist = raw_data[:, 13, x:y]
 		right_wrist = raw_data[:, 16, x:y]
 
-		d = right_wrist - left_wrist
-		d2 = right_shoulder - left_shoulder
-		d3 = right_elbow - left_elbow
-
-		d11 = right_wrist[1:, :] - right_wrist[:-1, :]
-		d22 = right_shoulder[1:, :] - right_shoulder[:-1, :]
-		d33 = right_elbow[1:, :] - right_elbow[:-1, :]
-
-		d111 = left_wrist[1:, :] - left_wrist[:-1, :]
-		d222 = left_shoulder[1:, :] - left_shoulder[:-1, :]
-		d333 = left_elbow[1:, :] - left_elbow[:-1, :]
+		# d = right_wrist - left_wrist
+		# d2 = right_shoulder - left_shoulder
+		# d3 = right_elbow - left_elbow
+		#
+		# d11 = right_wrist[1:, :] - right_wrist[:-1, :]
+		# d22 = right_shoulder[1:, :] - right_shoulder[:-1, :]
+		# d33 = right_elbow[1:, :] - right_elbow[:-1, :]
+		#
+		# d111 = left_wrist[1:, :] - left_wrist[:-1, :]
+		# d222 = left_shoulder[1:, :] - left_shoulder[:-1, :]
+		# d333 = left_elbow[1:, :] - left_elbow[:-1, :]
 
 		# res = [np.mean(d), np.std(d), np.min(d), np.max(d)] + [np.mean(d2), np.std(d2), np.min(d2), np.max(d2)]
 		# res = stats(head) + stats(d) + stats(d2) + stats(d3)  #+ stats(d11)  + stats(d22) + stats(d33) + stats(d111)  + stats(d222) + stats(d333)
 		# res = stats(d**2) + stats(d2**2) + stats(d3**2) + stats(d11**2) + stats(d22**2) + stats(d33**2) + stats(d111**2) + stats(d222**2) + stats(d333**2)
 		p = 3
 		# res = stats(d ** p) + stats(d2 ** p) + stats(d3 ** p) + stats(d11 ** p) + stats(d22 ** p) + stats(d33 ** p) + stats(d111 ** p) + stats(d222 ** p) + stats(d333 ** p)
-		res = [len(raw_data)]
+		res = []
 		# data = np.sum(raw_data, axis=2)
 		# res += np.mean(data, axis=0).tolist() + np.std(data, axis=0).tolist() +  np.min(data, axis=0).tolist() + np.max(data, axis=0).tolist()
 		# data = np.sum(raw_data, axis=1)
@@ -242,6 +326,7 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 				# res += stats(raw_data[:, j, x:y]-raw_data[0:1, j, x:y])
 				if i == j: continue
 				res += stats((raw_data[:, i, x:y] - raw_data[:, j, x:y]) ** 1)
+			# res += stats((raw_data[:, j, x:y] - raw_data[:, i, x:y]) ** 1)
 		# # # 	# res += stats(raw_data[:, j, x:y] - raw_data[:, i, x:y])
 
 		# res = stats(right_wrist) +stats(left_wrist) + stats(d) + stats(d2) + stats(d3) #+ stats(d11)  + stats(d22) + stats(d33) + stats(d111)  + stats(d222) + stats(d333)
@@ -259,13 +344,13 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 		# (np.max(left_elbow, axis=0) - np.min(left_elbow, axis=0)).tolist() + \
 		# (np.max(left_shoulder, axis=0) - np.min(left_shoulder, axis=0)).tolist()
 
-		feature_name = []
+		# feature_name = []
 		return res
 
 	n = raw_data.shape[0]
 	# only right keypoints
-	# raw_data = raw_data[:, [11, 12, 13, 14, 15, 16], :].reshape((n, -1))
-	raw_data = raw_data[:, :, :].reshape((n, -1))
+	raw_data = raw_data[:, [11, 12, 13, 14, 15, 16], :].reshape((n, -1))
+	# raw_data = raw_data[:, :, :].reshape((n, -1))
 	# raw_data = raw_data[:, [14, 16], :].reshape((n, -1))
 
 	# raw_data = raw_data.reshape((n, 51))
@@ -277,12 +362,14 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 		# # data = data[1:] - data[:-1] # difference
 		# # print(data[:10], data[-10:])
 		# data = data[start: end]
-		flg = 'stats1'
+		flg = 'fft1'
 		if flg == 'fft':
 			fft_features = _get_fft(data, fft_bin=m)
 			fft_features = fft_features[0:1 + int(np.ceil((m - 1) / 2))]  # half of fft values
+		elif flg == 'mean':
+			fft_features = [np.mean(data)]
 		elif flg == 'std':
-			fft_features = [np.mean(data), np.std(data)]
+			# fft_features = [np.mean(data), np.std(data)]
 			# fft_features = list(np.quantile(data, q=[0, 0.25, 0.5, 0.75, 1]))
 			# fft_features = list(np.quantile(data, q = [0, 0.25, 0.5, 0.75, 1])) + [np.mean(data), np.std(data)]
 			fft_features = list(np.quantile(data, q=[v * 0.01 for v in range(0, 100, 5)])) + [np.mean(data),
@@ -291,6 +378,8 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 			                                                                                  np.min(data),
 			                                                                                  np.max(data)]
 		elif flg == 'stats':
+			# fft_features = list(np.quantile(data, q=[0, 0.25, 0.5, 0.75, 1]))
+			# fft_features = list(np.quantile(data, q=[ v *0.01 for v in range(0, 100, 10)]))
 			# fft_features = [np.min(data), np.max(data)]
 			# fft_features = [np.mean(data), np.std(data)]
 			# fft_features = [skew(data)]
@@ -300,7 +389,10 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 		elif flg == 'hand_direction':
 			fft_features = [np.max(data) - np.min(data), np.mean(data), np.std(data)]
 		elif flg == 'top10':
-			fft_features = sorted(data, reverse=True)[:50]
+			n = 100
+			fft_features = data[:n].tolist()
+			fft_features = fft_features + [0] * (n - len(fft_features))
+		# fft_features = sorted(data, reverse=True)[:50]
 		# fft_features = sorted(data, key=lambda x:abs(x), reverse=True)[:50]
 		else:
 			n = len(data)
@@ -312,8 +404,9 @@ def get_fft_features(raw_data='', m=84, keypoint=7, file=''):
 				if flg2 == 'stats':
 					# tmp = list(np.quantile(vs, q = [0, 0.5, 1] )) # [0, 0.25, 0.5, 0.75, 1]+ [np.mean(vs), np.std(vs)]
 					# tmp = list(np.quantile(vs, q=[0, 0.5, 1]))
-					tmp = [np.mean(data), np.std(data), skew(data), kurtosis(data), np.min(data), np.max(data)]
-					# tmp = [np.mean(vs)]
+					# tmp = [np.mean(vs)] # only mean
+					tmp = [np.max(vs) - np.min(vs), np.mean(vs)]  #
+					# tmp = [np.mean(data), np.std(data), skew(data), kurtosis(data), np.min(data), np.max(data)]
 					n_feat = len(tmp)
 				elif flg2:
 					tmp = _get_fft(vs)
@@ -582,9 +675,9 @@ def add_new_features(train_x, train_y, idx2label):
 	return np.asarray(new_train_x), train_y
 
 
+@timer
 def _main(m=10, random_state=10):
 	ROOT = 'examples/classical_ml'
-	all_results = {}
 	###############################################################################################################
 	# 1. get each camera data
 	# root_dir: the location of 3d keypoints data
@@ -658,15 +751,22 @@ def _main(m=10, random_state=10):
 	###############################################################################################################
 	# 4. Feature reduction
 	print(f'before: X_train: {train_x.shape}, y_train.shape: {train_y.shape}, X_test: {test_x.shape}')
-	# n_comps = [1, 5, 10] + list(range(20, 301, 20)) + [train_x.shape[1]]
+	# n_comps = [1, 5, 10] + list(range(20, 301, 20)) + [train_x.shape[1]//2]
+	dim = min(train_x.shape[0], train_x.shape[1])
+	if dim < 20:
+		n_comps = list(range(1, dim, 1))
+	else:
+		n_comps = list(range(1, dim, dim // 20))
 	raw_train_x = copy.deepcopy(train_x)
 	raw_test_x = copy.deepcopy(test_x)
 	res = {}
 	# n_comps = [v * 0.01 for v in range(80, 100 + 1, 5)]
-	n_comps = [1]
+	# the best n_comps are chosen when random state = 42. For the rest of repeats, we use the same best n_comps
+	# n_comps = [60]
 	print(n_comps)
 
 	for n_comp in n_comps:
+		all_results = {}
 		train_x = copy.deepcopy(raw_train_x)
 		test_x = copy.deepcopy(raw_test_x)
 		reduction_method = 'pca1'
@@ -689,6 +789,12 @@ def _main(m=10, random_state=10):
 			train_x = lda.transform(train_x)
 			test_x = lda.transform(test_x)
 
+		ss = StandardScaler()
+		# ss = RobustScaler()
+		# ss = MinMaxScaler()
+		ss.fit(train_x)
+		train_x = ss.transform(train_x)
+		test_x = ss.transform(test_x)
 		print(f'After: X_train: {train_x.shape}, y_train.shape: {train_y.shape}, X_test: {test_x.shape}')
 
 		# # ###############################################################################################################
@@ -727,22 +833,24 @@ def _main(m=10, random_state=10):
 		# 	print(missclassified)
 		# 	break
 
-		print('\nOnevsrest(LR)')
-		orc = OneVsRestClassifier(LogisticRegression(C=1, random_state=42, solver='liblinear'))
-		orc.fit(train_x, train_y)
-		pred_y = orc.predict(test_x)
-		# print(classification_report(test_y, pred_y))
-		cm = confusion_matrix(test_y, pred_y)
-		print(cm)
-		cm_file = make_confusion_matrix(cm, categories=label2idx.keys(), title=f'Onevsrest-{idx2camera[data_type]}',
-		                                out_dir='')
-		print(f'confusion_matrix: {cm_file}')
-		train_acc = accuracy_score(train_y, orc.predict(train_x))
-		acc = accuracy_score(test_y, pred_y)
-		print(acc, train_acc)
-		# missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name = 'RF', idx2label=idx2label)
-		# print(missclassified)
-		all_results['OVS(LR)'] = (acc, train_acc, test_x.shape[1])
+		# print('\nOnevsrest(LR)')
+		# orc = OneVsRestClassifier(LogisticRegression(C=1, random_state=42, solver='liblinear'))
+		# # orc = OneVsRestClassifier(SVC(kernel='rbf', random_state=42))
+		# # orc = OneVsRestClassifier(DecisionTreeClassifier(random_state=42))
+		# orc.fit(train_x, train_y)
+		# pred_y = orc.predict(test_x)
+		# # print(classification_report(test_y, pred_y))
+		# cm = confusion_matrix(test_y, pred_y)
+		# print(cm)
+		# cm_file = make_confusion_matrix(cm, categories=label2idx.keys(), title=f'Onevsrest-{idx2camera[data_type]}',
+		#                                 out_dir='')
+		# print(f'confusion_matrix: {cm_file}')
+		# train_acc = accuracy_score(train_y, orc.predict(train_x))
+		# acc = accuracy_score(test_y, pred_y)
+		# print(acc, train_acc)
+		# # missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name = 'RF', idx2label=idx2label)
+		# # print(missclassified)
+		# all_results['OVS(LR)'] = (acc, train_acc, test_x.shape[1])
 
 		rf = RandomForestClassifier(n_estimators=100, random_state=42)
 		rf.fit(train_x, train_y)
@@ -758,7 +866,7 @@ def _main(m=10, random_state=10):
 		acc = accuracy_score(test_y, pred_y)
 		print(acc, train_acc)
 		missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name='RF', idx2label=idx2label)
-		print(missclassified)
+		# print(missclassified)
 		# tmp = list(zip(rf.feature_importances_, features_names))
 		# print(sorted(tmp, key = lambda x: x[0], reverse=True))
 		# print(rf.feature_importances_, features_names)
@@ -832,43 +940,44 @@ def _main(m=10, random_state=10):
 		# # print(missclassified)
 		# all_results['gbc'] = (acc, train_acc, test_x.shape[1])
 
-		# import xgboost as xgb
-		# # specify parameters via map
-		# # param = {'max_depth': 2, 'eta': 1, 'objective': 'binary:logistic'}
-		# # num_round = 2
-		# bst = xgb.XGBClassifier()
-		# bst.fit(train_x, train_y)
-		# # make prediction
-		# pred_y = bst.predict(test_x)
-		# # print(classification_report(test_y, pred_y))
-		# cm = confusion_matrix(test_y, pred_y)
-		# print(cm)
-		# cm_file = make_confusion_matrix(cm, categories=label2idx.keys(), title=f'xgboost-{idx2camera[data_type]}',
-		#                                 out_dir='')
-		# print(f'confusion_matrix: {cm_file}')
-		# train_acc = accuracy_score(train_y, bst.predict(train_x))
-		# acc = accuracy_score(test_y, pred_y)
-		# print(acc, train_acc)
-		# # missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name = 'RF', idx2label=idx2label)
-		# # print(missclassified)
-		# all_results['bst'] = (acc, train_acc, test_x.shape[1])
+		import xgboost as xgb
+		# specify parameters via map
+		# param = {'max_depth': 2, 'eta': 1, 'objective': 'binary:logistic'}
+		# num_round = 2
+		bst = xgb.XGBClassifier(random_state=42)
+		bst.fit(train_x, train_y)
+		# make prediction
+		pred_y = bst.predict(test_x)
+		# print(classification_report(test_y, pred_y))
+		cm = confusion_matrix(test_y, pred_y)
+		print(cm)
+		cm_file = make_confusion_matrix(cm, categories=label2idx.keys(), title=f'xgboost-{idx2camera[data_type]}',
+		                                out_dir='')
+		print(f'confusion_matrix: {cm_file}')
+		train_acc = accuracy_score(train_y, bst.predict(train_x))
+		acc = accuracy_score(test_y, pred_y)
+		print(acc, train_acc)
+		missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name='xgboost',
+		                                    idx2label=idx2label)
+		print(missclassified)
+		all_results['bst'] = (acc, train_acc, test_x.shape[1])
 
-		#
-		# print('\nSVM(rbf)')
-		# svm = SVC(kernel='rbf', random_state=42)
-		# svm.fit(train_x, train_y)
-		# pred_y = svm.predict(test_x)
-		# # print(classification_report(test_y, pred_y))
-		# cm = confusion_matrix(test_y, pred_y)
-		# print(cm)
-		# cm_file = make_confusion_matrix(cm, categories=label2idx.keys(), title=f'SVM-{idx2camera[data_type]}', out_dir='')
-		# # print(f'confusion_matrix: {cm_file}')
-		# train_acc = accuracy_score(train_y, svm.predict(train_x))
-		# acc = accuracy_score(test_y, pred_y)
-		# print(acc, train_acc)
-		# # missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name = 'RF', idx2label=idx2label)
-		# # print(missclassified)
-		# all_results['svm'] = (acc, train_acc, test_x.shape[1])
+		print('\nSVM(rbf)')
+		svm = SVC(kernel='rbf', random_state=42)
+		svm.fit(train_x, train_y)
+		pred_y = svm.predict(test_x)
+		# print(classification_report(test_y, pred_y))
+		cm = confusion_matrix(test_y, pred_y)
+		print(cm)
+		cm_file = make_confusion_matrix(cm, categories=label2idx.keys(), title=f'SVM-{idx2camera[data_type]}',
+		                                out_dir='')
+		# print(f'confusion_matrix: {cm_file}')
+		train_acc = accuracy_score(train_y, svm.predict(train_x))
+		acc = accuracy_score(test_y, pred_y)
+		print(acc, train_acc)
+		# missclassified = get_missclassified(cm, test_y, pred_y, test_raw_files, model_name = 'RF', idx2label=idx2label)
+		# print(missclassified)
+		all_results['svm'] = (acc, train_acc, test_x.shape[1])
 
 		print('\nSVM(linear)')
 		svm = SVC(kernel='linear', random_state=42)
@@ -889,12 +998,22 @@ def _main(m=10, random_state=10):
 		if reduction_method not in ['pca', 'sir', 'lda']:
 			return all_results
 		res[n_comp] = copy.deepcopy(all_results)
-		print('***', n_comp, all_results, '***\n\n')
+	# print('***', n_comp, all_results, '***\n\n')
 
-	print(res)
+	print(f'res: ')
+	for n_comp in res.keys():
+		print(f'{n_comp}: {res[n_comp]}')
 	# methods = ['rf']
 	# plot_data(res, methods, plot_type='test', x_label='n_comps', title='Test')
-	return res
+	final = {}
+	for model_name in all_results.keys():
+		for i, n_comp in enumerate(res.keys()):
+			if i == 0:
+				final[model_name] = res[n_comp][model_name]
+			elif final[model_name][0] < res[n_comp][model_name][0]:
+				final[model_name] = res[n_comp][model_name]
+	print(f'final: {final}')
+	return final
 
 
 def plot_data(history, methods=['knn', 'rf', 'svm', 'svm-linear'], plot_type='test',
@@ -966,12 +1085,18 @@ if __name__ == '__main__':
 	res = {}
 	# repeats with different random states
 	repeats = [42, 10, 100, 500, 1000]
+	repeats = [42]
+	# for m in [1, 5, 10, 20, 30, 40, 48, 50, 60, 70, 80, 90, 100]:
 	for i, random_state in enumerate(repeats):
 		print(f'\n\nrepeat: {i + 1}/{len(repeats)}')
-		tmp = _main(m=84, random_state=random_state)
+		tmp = _main(m=48, random_state=random_state)  # m = 48
 		res[random_state] = tmp
 
+	print(res.items())
 	# get mean and std of each model's results
-	for model_name in ['OVS(LR)', 'RF', 'SVM(linear)']:
-		model_res = [vs[model_name][0] for rs, vs in res.items()]
-		print(f'{model_name}: {np.mean(model_res):.2f} +/- {np.std(model_res):.2f}. Acc: {model_res}')
+	for model_name in ['OVS(LR)', 'RF', 'bst', 'svm', 'SVM(linear)']:
+		try:
+			model_res = [vs[model_name][0] for rs, vs in res.items()]
+			print(f'{model_name}: {np.mean(model_res):.2f} +/- {np.std(model_res):.2f}. Acc: {model_res}')
+		except Exception as e:
+			print(e)

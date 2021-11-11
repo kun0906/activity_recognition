@@ -1,4 +1,4 @@
-""" Install odet:
+""" Install odet first:
     https://github.com/kun0906/odet
 
 """
